@@ -64,7 +64,7 @@ select, .btn, .text-input {
   border: 1px solid #334155;
   border-radius: 10px;
   margin-bottom: 8px;
-  cursor: pointer;
+  cursor: default;
 }
 .problem-item.active { border-color: var(--primary); background: #243041; }
 .problem-item .title { font-size: 14px; font-weight: 600; }
@@ -181,3 +181,7 @@ select, .btn, .text-input {
   border-radius: 10px;
   background: #0b1220;
 }
+
+
+.controls { flex-wrap: wrap; justify-content: flex-end; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -3,6 +3,11 @@ const JUDGE_API_BASE = localStorage.getItem("judgeApiBase") || "http://127.0.0.1
 let problems = [];
 let testcases = {};
 let selectedProblem = null;
+let problemSets = {};
+let activeSetId = localStorage.getItem("activeProblemSetId") || "";
+let activeSetQueue = [];
+let activeSetIndex = 0;
+
 let currentMode = localStorage.getItem("runMode") || ""; // memo|assistant|socratic
 let chatSessionId = localStorage.getItem("chatSessionId") || crypto.randomUUID();
 
@@ -17,6 +22,12 @@ const els = {
   lang: document.getElementById("languageSelect"),
   runBtn: document.getElementById("runBtn"),
   submitBtn: document.getElementById("submitBtn"),
+
+  problemSetSelect: document.getElementById("problemSetSelect"),
+  applySetBtn: document.getElementById("applySetBtn"),
+  prevProblemBtn: document.getElementById("prevProblemBtn"),
+  nextProblemBtn: document.getElementById("nextProblemBtn"),
+  progressBadge: document.getElementById("progressBadge"),
 
   modeLauncher: document.getElementById("modeLauncher"),
   startupModeSelect: document.getElementById("startupModeSelect"),
@@ -94,7 +105,6 @@ function applyRunMode(mode) {
 
 function initRunMode() {
   if (!currentMode) {
-    // 기본은 선택창 노출, 메모장 프리뷰
     els.startupModeSelect.value = "memo";
     els.memoMode.classList.add("active");
     els.assistantMode.classList.remove("active");
@@ -102,6 +112,76 @@ function initRunMode() {
     return;
   }
   applyRunMode(currentMode);
+}
+
+function buildProblemSets() {
+  const allIds = problems.map((p) => p.id);
+  const mediumIds = problems.filter((p) => p.difficulty === "medium").map((p) => p.id);
+  const easyIds = problems.filter((p) => p.difficulty === "easy").map((p) => p.id);
+
+  problemSets = {
+    "all-sequential": { name: "전체 문제 세트(순차)", ids: allIds },
+    "medium-sequential": { name: "중급 문제 세트(순차)", ids: mediumIds },
+    "easy-sequential": { name: "입문 문제 세트(순차)", ids: easyIds }
+  };
+
+  if (!activeSetId || !problemSets[activeSetId]) {
+    activeSetId = mediumIds.length ? "medium-sequential" : "all-sequential";
+  }
+}
+
+function renderProblemSetSelect() {
+  els.problemSetSelect.innerHTML = "";
+  for (const [setId, setData] of Object.entries(problemSets)) {
+    const opt = document.createElement("option");
+    opt.value = setId;
+    opt.textContent = `${setData.name} (${setData.ids.length})`;
+    if (setId === activeSetId) opt.selected = true;
+    els.problemSetSelect.appendChild(opt);
+  }
+}
+
+function getProgressKey(setId) {
+  return `setProgress:${setId}`;
+}
+
+function activateProblemSet(setId, resetProgress = false) {
+  if (!problemSets[setId]) return;
+  activeSetId = setId;
+  localStorage.setItem("activeProblemSetId", setId);
+
+  activeSetQueue = [...problemSets[setId].ids];
+  const saved = Number(localStorage.getItem(getProgressKey(setId)) || 0);
+  activeSetIndex = resetProgress ? 0 : Math.min(Math.max(saved, 0), Math.max(0, activeSetQueue.length - 1));
+
+  localStorage.setItem(getProgressKey(setId), String(activeSetIndex));
+
+  const currentId = activeSetQueue[activeSetIndex];
+  selectedProblem = problems.find((p) => p.id === currentId) || problems[0] || null;
+
+  updateProgressUI();
+  render();
+}
+
+function moveProblem(delta) {
+  if (!activeSetQueue.length) return;
+  const next = activeSetIndex + delta;
+  if (next < 0 || next >= activeSetQueue.length) return;
+  activeSetIndex = next;
+  localStorage.setItem(getProgressKey(activeSetId), String(activeSetIndex));
+  const currentId = activeSetQueue[activeSetIndex];
+  selectedProblem = problems.find((p) => p.id === currentId) || selectedProblem;
+  updateProgressUI();
+  renderProblem();
+  renderList();
+}
+
+function updateProgressUI() {
+  const total = activeSetQueue.length;
+  const current = total ? activeSetIndex + 1 : 0;
+  els.progressBadge.textContent = `${current} / ${total}`;
+  els.prevProblemBtn.disabled = activeSetIndex <= 0;
+  els.nextProblemBtn.disabled = activeSetIndex >= total - 1;
 }
 
 async function loadData() {
@@ -118,29 +198,34 @@ async function loadData() {
     problems = await problemsRes.json();
     testcases = await testcasesRes.json();
 
-    if (!problems.length) {
-      throw new Error("problems.json이 비어 있습니다.");
-    }
+    if (!problems.length) throw new Error("problems.json이 비어 있습니다.");
 
-    selectedProblem = problems[0];
-    render();
+    buildProblemSets();
+    renderProblemSetSelect();
+    activateProblemSet(activeSetId);
   } catch (err) {
     els.result.textContent = `데이터 로드 실패: ${err.message}`;
   }
 }
 
 function renderList() {
-  els.list.innerHTML = "<h3>Problems</h3>";
-  for (const p of problems) {
+  const setName = problemSets[activeSetId]?.name || "(세트 없음)";
+  els.list.innerHTML = `<h3>Problem Set</h3><div class="meta">${setName}</div>`;
+
+  activeSetQueue.forEach((problemId, idx) => {
+    const p = problems.find((x) => x.id === problemId);
+    if (!p) return;
+
     const div = document.createElement("div");
-    div.className = `problem-item ${selectedProblem && p.id === selectedProblem.id ? "active" : ""}`;
-    div.innerHTML = `<div class="title">${p.id}. ${p.title}</div><div class="meta">${p.difficulty.toUpperCase()}</div>`;
-    div.onclick = () => {
-      selectedProblem = p;
-      render();
-    };
+    const cls = p.id === selectedProblem?.id ? "active" : "";
+    div.className = `problem-item ${cls}`;
+
+    const prefix = idx < activeSetIndex ? "✅" : idx === activeSetIndex ? "▶" : "•";
+    div.innerHTML = `<div class="title">${prefix} ${idx + 1}. ${p.title}</div><div class="meta">${p.difficulty.toUpperCase()}</div>`;
+
+    // 문제 직접 선택은 비활성 (순차 진행 전용)
     els.list.appendChild(div);
-  }
+  });
 }
 
 function renderProblem() {
@@ -309,6 +394,10 @@ els.submitBtn.addEventListener("click", async () => {
   els.result.textContent = "Submitting...";
   els.result.textContent = await judge("submit");
 });
+
+els.applySetBtn.addEventListener("click", () => activateProblemSet(els.problemSetSelect.value));
+els.prevProblemBtn.addEventListener("click", () => moveProblem(-1));
+els.nextProblemBtn.addEventListener("click", () => moveProblem(1));
 
 els.startModeBtn.addEventListener("click", () => applyRunMode(els.startupModeSelect.value));
 els.resetModeBtn.addEventListener("click", () => {
