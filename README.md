@@ -5,6 +5,10 @@
 2. **메모장 모드** (자동저장 + 최종저장)
 3. **답변제공 모드** (GPT API 연동, 멀티턴 메모리, 로그 저장/다운로드)
 
+## 실행 화면
+
+![LeetCode Clone 실행 화면](docs/screenshot-main.png)
+
 ## 경로
 
 - 프론트엔드: `/Users/hcis/Desktop/leetcode-clone`
