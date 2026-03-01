@@ -40,7 +40,7 @@
 ## UI 정책 (현재)
 
 - 상단에는 **진행도(`현재 문제 번호 / 총 문제 개수`)만 표시**
-- 문제 제목/난이도, Problem Set 섹션 제거
+- 문제 제목/난이도, Problem Set 섹션 제거 (입력창 제목 Code / Self-Explain / Chat / Question은 유지)
 - 예시 입력 문구 제거
   - 메모장 입력창 placeholder 제거
   - 답변제공 입력창 placeholder 제거
@@ -141,6 +141,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 7. 문제세트 순차 진행 구조로 변경
 8. **args 기반 고정 실행(set/mode/user_id)** 으로 변경
 9. **UI 단순화(진행도만 표시, Problem Set 제거, placeholder 제거)**
+10. **전체 문제 hidden 테스트케이스 대폭 확장**
 
 ---
 

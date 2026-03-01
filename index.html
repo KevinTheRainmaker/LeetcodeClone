@@ -29,6 +29,7 @@
       </section>
 
       <section class="panel right">
+        <h3>Code</h3>
         <textarea id="editor" spellcheck="false"></textarea>
         <div class="result-wrap">
           <h3>Result</h3>
@@ -40,7 +41,7 @@
     <section class="extra-layout">
       <section class="panel">
         <div id="memoMode" class="mode-panel">
-          <h3>알고리즘 자기설명 메모장</h3>
+          <h3>Self-Explain</h3>
           <p class="helper-text">문제 접근법, 핵심 아이디어, 시간복잡도/공간복잡도를 직접 설명해보세요. (자동저장 + 최종저장)</p>
           <textarea id="memoInput" class="memo-input"></textarea>
           <div class="row">
@@ -52,7 +53,7 @@
         </div>
 
         <div id="assistantMode" class="mode-panel">
-          <h3>GPT 답변제공</h3>
+          <h3>Chat</h3>
           <p class="helper-text">질문을 입력하면 코드 스니펫 + 해설을 제공합니다. 멀티턴 메모리와 로그 저장을 지원합니다.</p>
           <div class="row">
             <label class="muted">Session:</label>
@@ -61,6 +62,7 @@
             <button id="downloadLogBtn" class="btn secondary">로그 다운로드</button>
           </div>
           <div id="chatHistory" class="chat-history"></div>
+          <h4>Question</h4>
           <textarea id="chatInput" class="memo-input"></textarea>
           <div class="row">
             <span class="muted">모델 응답은 judge-server를 통해 호출됩니다.</span>

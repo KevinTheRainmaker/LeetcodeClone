@@ -176,11 +176,6 @@ function renderProblem() {
     els.examples.appendChild(box);
   });
 
-  const tc = testcases[String(selectedProblem.id)] || { visible: [], hidden: [] };
-  const info = document.createElement("div");
-  info.className = "example";
-  info.innerHTML = `<strong>Testcases:</strong> visible ${tc.visible.length}개 / hidden ${tc.hidden.length}개`;
-  els.examples.appendChild(info);
 
   const key = `code:${runArgs.userId}:set${runArgs.setId}:p${selectedProblem.id}:${runArgs.language}`;
   const saved = localStorage.getItem(key);
