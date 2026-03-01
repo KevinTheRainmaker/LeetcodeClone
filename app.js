@@ -23,17 +23,13 @@ const allowedModes = new Set(["memo", "assistant", "socratic"]);
 if (!allowedModes.has(runArgs.mode)) runArgs.mode = "memo";
 
 const els = {
-  list: document.getElementById("problemList"),
   title: document.getElementById("problemTitle"),
-  difficulty: document.getElementById("difficulty"),
   desc: document.getElementById("problemDesc"),
   examples: document.getElementById("examples"),
   editor: document.getElementById("editor"),
   result: document.getElementById("result"),
 
-  setBadge: document.getElementById("setBadge"),
-  modeBadge: document.getElementById("modeBadge"),
-  userBadge: document.getElementById("userBadge"),
+  progressBadge: document.getElementById("progressBadge"),
   runBtn: document.getElementById("runBtn"),
   submitBtn: document.getElementById("submitBtn"),
   nextProblemBtn: document.getElementById("nextProblemBtn"),
@@ -84,9 +80,7 @@ async function logEvent(action, detail = {}) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(row)
     });
-  } catch {
-    // ignore network log failures
-  }
+  } catch {}
 }
 
 function getMemoKey() {
@@ -106,7 +100,6 @@ function finalSaveMemo() {
     userId: runArgs.userId,
     setId: runArgs.setId,
     problemId: selectedProblem.id,
-    problemTitle: selectedProblem.title,
     savedAt: nowKstString(),
     content: els.memoInput.value
   };
@@ -126,6 +119,13 @@ function applyFixedMode() {
   els.memoMode.classList.toggle("active", runArgs.mode === "memo");
   els.assistantMode.classList.toggle("active", runArgs.mode === "assistant");
   els.socraticMode.classList.toggle("active", runArgs.mode === "socratic");
+}
+
+function updateProgressBadge() {
+  els.progressBadge.textContent = `${activeSetIndex + 1} / ${activeSetQueue.length}`;
+  const done = activeSetIndex >= activeSetQueue.length - 1;
+  els.nextProblemBtn.disabled = done;
+  if (done) els.nextProblemBtn.textContent = "완료";
 }
 
 async function loadData() {
@@ -154,46 +154,18 @@ async function loadData() {
     selectedProblem = problems.find((p) => p.id === activeSetQueue[activeSetIndex]) || null;
     if (!selectedProblem) throw new Error("문제세트의 problemId가 problems.json에 없습니다.");
 
-    initHeader();
-    render();
+    renderProblem();
     logEvent("session_start", { setName: activeSet.name });
   } catch (err) {
     els.result.textContent = `데이터 로드 실패: ${err.message}`;
   }
 }
 
-function initHeader() {
-  els.setBadge.textContent = `SET #${runArgs.setId}`;
-  els.modeBadge.textContent = `MODE: ${runArgs.mode.toUpperCase()}`;
-  els.userBadge.textContent = `USER: ${runArgs.userId}`;
-}
-
-function updateNextButton() {
-  const done = activeSetIndex >= activeSetQueue.length - 1;
-  els.nextProblemBtn.disabled = done;
-  if (done) els.nextProblemBtn.textContent = "완료";
-}
-
-function renderList() {
-  els.list.innerHTML = `<h3>Problem Set</h3><div class="meta">${activeSet.name}</div>`;
-  activeSetQueue.forEach((pid, idx) => {
-    const p = problems.find((x) => x.id === pid);
-    if (!p) return;
-    const div = document.createElement("div");
-    const cls = p.id === selectedProblem?.id ? "active" : "";
-    div.className = `problem-item ${cls}`;
-    const mark = idx < activeSetIndex ? "✅" : idx === activeSetIndex ? "▶" : "•";
-    div.innerHTML = `<div class="title">${mark} ${idx + 1}. ${p.title}</div><div class="meta">${p.difficulty.toUpperCase()}</div>`;
-    els.list.appendChild(div);
-  });
-}
-
 function renderProblem() {
   if (!selectedProblem) return;
 
-  els.title.textContent = `${activeSetIndex + 1}. ${selectedProblem.title}`;
-  els.difficulty.textContent = selectedProblem.difficulty.toUpperCase();
-  els.difficulty.className = `badge ${selectedProblem.difficulty}`;
+  // 제목/난이도 미표시 정책
+  els.title.textContent = `문제 ${activeSetIndex + 1}`;
   els.desc.textContent = selectedProblem.description;
 
   els.examples.innerHTML = "";
@@ -215,7 +187,8 @@ function renderProblem() {
   els.editor.value = saved || selectedProblem.starter[runArgs.language] || selectedProblem.starter.javascript || "";
 
   loadMemo();
-  updateNextButton();
+  updateProgressBadge();
+  els.chatSessionId.value = chatSessionId;
 }
 
 function saveCode() {
@@ -227,7 +200,6 @@ function saveCode() {
 function formatJudgeResponse(resp, mode) {
   const lines = [
     resp.status || "Unknown",
-    `Problem: ${selectedProblem.title}`,
     `Language: ${runArgs.language}`,
     `Mode: ${mode.toUpperCase()}`,
     `Passed: ${resp.passed ?? 0}/${resp.total ?? 0}`,
@@ -279,7 +251,7 @@ async function nextProblem() {
   activeSetIndex += 1;
   const pid = activeSetQueue[activeSetIndex];
   selectedProblem = problems.find((p) => p.id === pid) || selectedProblem;
-  render();
+  renderProblem();
   await logEvent("next_problem", { toIndex: activeSetIndex, toProblemId: pid });
 }
 
@@ -348,12 +320,6 @@ function newChatSession() {
   localStorage.setItem("chatSessionId", chatSessionId);
   els.chatSessionId.value = chatSessionId;
   els.chatHistory.innerHTML = "";
-}
-
-function render() {
-  renderList();
-  renderProblem();
-  els.chatSessionId.value = chatSessionId;
 }
 
 els.editor.addEventListener("input", saveCode);

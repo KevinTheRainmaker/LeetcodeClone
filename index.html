@@ -10,22 +10,17 @@
     <header class="topbar">
       <div class="logo">🧩 LeetCode Clone</div>
       <div class="controls">
-        <span id="setBadge" class="badge medium">SET #?</span>
-        <span id="modeBadge" class="badge easy">MODE: ?</span>
-        <span id="userBadge" class="badge hard">USER: ?</span>
+        <span id="progressBadge" class="badge medium">0 / 0</span>
         <button id="runBtn" class="btn secondary">Run</button>
         <button id="submitBtn" class="btn primary">Submit</button>
         <button id="nextProblemBtn" class="btn primary">다음 문제</button>
       </div>
     </header>
 
-    <main class="layout">
-      <aside class="panel left" id="problemList"></aside>
-
-      <section class="panel middle">
+    <main class="layout simple">
+      <section class="panel middle full">
         <div class="problem-header">
           <h2 id="problemTitle"></h2>
-          <span id="difficulty" class="badge"></span>
         </div>
         <p id="problemDesc" class="problem-desc"></p>
 
@@ -47,7 +42,7 @@
         <div id="memoMode" class="mode-panel">
           <h3>알고리즘 자기설명 메모장</h3>
           <p class="helper-text">문제 접근법, 핵심 아이디어, 시간복잡도/공간복잡도를 직접 설명해보세요. (자동저장 + 최종저장)</p>
-          <textarea id="memoInput" class="memo-input" placeholder="예: Two Sum은 해시맵으로 O(n)에 해결 가능...&#10;1) 왜 이 방법을 택했는지&#10;2) 엣지케이스&#10;3) 복잡도"></textarea>
+          <textarea id="memoInput" class="memo-input"></textarea>
           <div class="row">
             <span id="memoSavedAt" class="muted">아직 저장되지 않았습니다.</span>
             <div>
@@ -66,7 +61,7 @@
             <button id="downloadLogBtn" class="btn secondary">로그 다운로드</button>
           </div>
           <div id="chatHistory" class="chat-history"></div>
-          <textarea id="chatInput" class="memo-input" placeholder="예: Two Sum을 Python으로 풀이해주고, 왜 해시맵이 맞는지 설명해줘"></textarea>
+          <textarea id="chatInput" class="memo-input"></textarea>
           <div class="row">
             <span class="muted">모델 응답은 judge-server를 통해 호출됩니다.</span>
             <button id="chatSendBtn" class="btn primary">질문 보내기</button>

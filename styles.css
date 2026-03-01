@@ -45,7 +45,7 @@ select, .btn, .text-input {
 .layout {
   min-height: 560px;
   display: grid;
-  grid-template-columns: 280px 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   padding: 12px;
 }
@@ -185,3 +185,8 @@ select, .btn, .text-input {
 
 .controls { flex-wrap: wrap; justify-content: flex-end; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+
+.layout.simple .left { display: none; }
+.layout.simple .middle.full { grid-column: 1; }
+.controls { flex-wrap: wrap; justify-content: flex-end; }
