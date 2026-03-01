@@ -67,5 +67,258 @@
       "python": "def length_of_longest_substring(s):\n    # TODO\n    pass\n",
       "cpp": "int lengthOfLongestSubstring(string s) {\n    // TODO\n}\n"
     }
+  },
+  {
+    "id": 4,
+    "slug": "product-of-array-except-self",
+    "title": "Product of Array Except Self",
+    "difficulty": "medium",
+    "functionName": "productExceptSelf",
+    "description": "정수 배열 nums에서 각 위치 i에 대해 nums[i]를 제외한 나머지 원소들의 곱을 반환하세요.",
+    "examples": [
+      {
+        "input": "nums = [1,2,3,4]",
+        "output": "[24,12,8,6]"
+      },
+      {
+        "input": "nums = [-1,1,0,-3,3]",
+        "output": "[0,0,9,0,0]"
+      }
+    ],
+    "starter": {
+      "javascript": "function productExceptSelf(nums) {\n  // TODO\n}\n",
+      "python": "def product_except_self(nums):\n    # TODO\n    pass\n",
+      "cpp": "vector<int> productExceptSelf(vector<int>& nums) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 5,
+    "slug": "coin-change",
+    "title": "Coin Change",
+    "difficulty": "medium",
+    "functionName": "coinChange",
+    "description": "동전 배열 coins와 금액 amount가 주어질 때 amount를 만들기 위한 최소 동전 개수를 반환하세요. 불가능하면 -1을 반환하세요.",
+    "examples": [
+      {
+        "input": "coins = [1,2,5], amount = 11",
+        "output": "3"
+      },
+      {
+        "input": "coins = [2], amount = 3",
+        "output": "-1"
+      }
+    ],
+    "starter": {
+      "javascript": "function coinChange(coins, amount) {\n  // TODO\n}\n",
+      "python": "def coin_change(coins, amount):\n    # TODO\n    pass\n",
+      "cpp": "int coinChange(vector<int>& coins, int amount) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 6,
+    "slug": "longest-consecutive-sequence",
+    "title": "Longest Consecutive Sequence",
+    "difficulty": "medium",
+    "functionName": "longestConsecutive",
+    "description": "정수 배열 nums에서 연속된 수열의 가장 긴 길이를 반환하세요.",
+    "examples": [
+      {
+        "input": "nums = [100,4,200,1,3,2]",
+        "output": "4"
+      },
+      {
+        "input": "nums = [0,3,7,2,5,8,4,6,0,1]",
+        "output": "9"
+      }
+    ],
+    "starter": {
+      "javascript": "function longestConsecutive(nums) {\n  // TODO\n}\n",
+      "python": "def longest_consecutive(nums):\n    # TODO\n    pass\n",
+      "cpp": "int longestConsecutive(vector<int>& nums) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 7,
+    "slug": "container-with-most-water",
+    "title": "Container With Most Water",
+    "difficulty": "medium",
+    "functionName": "maxArea",
+    "description": "높이 배열 height가 주어질 때 담을 수 있는 물의 최대 넓이를 반환하세요.",
+    "examples": [
+      {
+        "input": "height = [1,8,6,2,5,4,8,3,7]",
+        "output": "49"
+      },
+      {
+        "input": "height = [1,1]",
+        "output": "1"
+      }
+    ],
+    "starter": {
+      "javascript": "function maxArea(height) {\n  // TODO\n}\n",
+      "python": "def max_area(height):\n    # TODO\n    pass\n",
+      "cpp": "int maxArea(vector<int>& height) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 8,
+    "slug": "search-in-rotated-sorted-array",
+    "title": "Search in Rotated Sorted Array",
+    "difficulty": "medium",
+    "functionName": "search",
+    "description": "회전된 정렬 배열 nums에서 target의 인덱스를 반환하세요. 없으면 -1을 반환하세요.",
+    "examples": [
+      {
+        "input": "nums = [4,5,6,7,0,1,2], target = 0",
+        "output": "4"
+      },
+      {
+        "input": "nums = [4,5,6,7,0,1,2], target = 3",
+        "output": "-1"
+      }
+    ],
+    "starter": {
+      "javascript": "function search(nums, target) {\n  // TODO\n}\n",
+      "python": "def search(nums, target):\n    # TODO\n    pass\n",
+      "cpp": "int search(vector<int>& nums, int target) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 9,
+    "slug": "find-minimum-in-rotated-sorted-array",
+    "title": "Find Minimum in Rotated Sorted Array",
+    "difficulty": "medium",
+    "functionName": "findMin",
+    "description": "중복 없는 회전된 정렬 배열 nums에서 최솟값을 반환하세요.",
+    "examples": [
+      {
+        "input": "nums = [3,4,5,1,2]",
+        "output": "1"
+      },
+      {
+        "input": "nums = [4,5,6,7,0,1,2]",
+        "output": "0"
+      }
+    ],
+    "starter": {
+      "javascript": "function findMin(nums) {\n  // TODO\n}\n",
+      "python": "def find_min(nums):\n    # TODO\n    pass\n",
+      "cpp": "int findMin(vector<int>& nums) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 10,
+    "slug": "house-robber",
+    "title": "House Robber",
+    "difficulty": "medium",
+    "functionName": "rob",
+    "description": "인접한 집을 동시에 털 수 없을 때, 훔칠 수 있는 최대 금액을 반환하세요.",
+    "examples": [
+      {
+        "input": "nums = [1,2,3,1]",
+        "output": "4"
+      },
+      {
+        "input": "nums = [2,7,9,3,1]",
+        "output": "12"
+      }
+    ],
+    "starter": {
+      "javascript": "function rob(nums) {\n  // TODO\n}\n",
+      "python": "def rob(nums):\n    # TODO\n    pass\n",
+      "cpp": "int rob(vector<int>& nums) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 11,
+    "slug": "jump-game",
+    "title": "Jump Game",
+    "difficulty": "medium",
+    "functionName": "canJump",
+    "description": "각 칸의 점프 가능 길이가 주어질 때 마지막 인덱스에 도달 가능한지 반환하세요.",
+    "examples": [
+      {
+        "input": "nums = [2,3,1,1,4]",
+        "output": "true"
+      },
+      {
+        "input": "nums = [3,2,1,0,4]",
+        "output": "false"
+      }
+    ],
+    "starter": {
+      "javascript": "function canJump(nums) {\n  // TODO\n}\n",
+      "python": "def can_jump(nums):\n    # TODO\n    pass\n",
+      "cpp": "bool canJump(vector<int>& nums) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 12,
+    "slug": "decode-ways",
+    "title": "Decode Ways",
+    "difficulty": "medium",
+    "functionName": "numDecodings",
+    "description": "숫자 문자열 s를 A=1 ... Z=26 규칙으로 해독할 수 있는 경우의 수를 반환하세요.",
+    "examples": [
+      {
+        "input": "s = \"12\"",
+        "output": "2"
+      },
+      {
+        "input": "s = \"226\"",
+        "output": "3"
+      }
+    ],
+    "starter": {
+      "javascript": "function numDecodings(s) {\n  // TODO\n}\n",
+      "python": "def num_decodings(s):\n    # TODO\n    pass\n",
+      "cpp": "int numDecodings(string s) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 13,
+    "slug": "word-break",
+    "title": "Word Break",
+    "difficulty": "medium",
+    "functionName": "wordBreak",
+    "description": "문자열 s가 wordDict의 단어들로 분리 가능한지 반환하세요.",
+    "examples": [
+      {
+        "input": "s = \"leetcode\", wordDict = [\"leet\",\"code\"]",
+        "output": "true"
+      },
+      {
+        "input": "s = \"catsandog\", wordDict = [\"cats\",\"dog\",\"sand\",\"and\",\"cat\"]",
+        "output": "false"
+      }
+    ],
+    "starter": {
+      "javascript": "function wordBreak(s, wordDict) {\n  // TODO\n}\n",
+      "python": "def word_break(s, word_dict):\n    # TODO\n    pass\n",
+      "cpp": "bool wordBreak(string s, vector<string>& wordDict) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 14,
+    "slug": "daily-temperatures",
+    "title": "Daily Temperatures",
+    "difficulty": "medium",
+    "functionName": "dailyTemperatures",
+    "description": "매일의 온도 배열 temperatures에 대해 더 따뜻한 날을 기다려야 하는 일수를 반환하세요.",
+    "examples": [
+      {
+        "input": "temperatures = [73,74,75,71,69,72,76,73]",
+        "output": "[1,1,4,2,1,1,0,0]"
+      },
+      {
+        "input": "temperatures = [30,40,50,60]",
+        "output": "[1,1,1,0]"
+      }
+    ],
+    "starter": {
+      "javascript": "function dailyTemperatures(temperatures) {\n  // TODO\n}\n",
+      "python": "def daily_temperatures(temperatures):\n    # TODO\n    pass\n",
+      "cpp": "vector<int> dailyTemperatures(vector<int>& temperatures) {\n    // TODO\n}\n"
+    }
   }
 ]

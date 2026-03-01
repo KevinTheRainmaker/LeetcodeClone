@@ -1,31 +1,608 @@
 {
   "1": {
     "visible": [
-      { "input": [[2, 7, 11, 15], 9], "expected": [0, 1] },
-      { "input": [[3, 2, 4], 6], "expected": [1, 2] }
+      {
+        "input": [
+          [
+            2,
+            7,
+            11,
+            15
+          ],
+          9
+        ],
+        "expected": [
+          0,
+          1
+        ]
+      },
+      {
+        "input": [
+          [
+            3,
+            2,
+            4
+          ],
+          6
+        ],
+        "expected": [
+          1,
+          2
+        ]
+      }
     ],
     "hidden": [
-      { "input": [[3, 3], 6], "expected": [0, 1] }
+      {
+        "input": [
+          [
+            3,
+            3
+          ],
+          6
+        ],
+        "expected": [
+          0,
+          1
+        ]
+      }
     ]
   },
   "2": {
     "visible": [
-      { "input": ["()[]{}"], "expected": true },
-      { "input": ["(]"], "expected": false }
+      {
+        "input": [
+          "()[]{}"
+        ],
+        "expected": true
+      },
+      {
+        "input": [
+          "(]"
+        ],
+        "expected": false
+      }
     ],
     "hidden": [
-      { "input": ["([{}])"], "expected": true },
-      { "input": ["(("], "expected": false }
+      {
+        "input": [
+          "([{}])"
+        ],
+        "expected": true
+      },
+      {
+        "input": [
+          "(("
+        ],
+        "expected": false
+      }
     ]
   },
   "3": {
     "visible": [
-      { "input": ["abcabcbb"], "expected": 3 },
-      { "input": ["bbbbb"], "expected": 1 }
+      {
+        "input": [
+          "abcabcbb"
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          "bbbbb"
+        ],
+        "expected": 1
+      }
     ],
     "hidden": [
-      { "input": ["pwwkew"], "expected": 3 },
-      { "input": [""], "expected": 0 }
+      {
+        "input": [
+          "pwwkew"
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          ""
+        ],
+        "expected": 0
+      }
+    ]
+  },
+  "4": {
+    "visible": [
+      {
+        "input": [
+          [
+            1,
+            2,
+            3,
+            4
+          ]
+        ],
+        "expected": [
+          24,
+          12,
+          8,
+          6
+        ]
+      },
+      {
+        "input": [
+          [
+            -1,
+            1,
+            0,
+            -3,
+            3
+          ]
+        ],
+        "expected": [
+          0,
+          0,
+          9,
+          0,
+          0
+        ]
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            2,
+            3,
+            4,
+            5
+          ]
+        ],
+        "expected": [
+          60,
+          40,
+          30,
+          24
+        ]
+      }
+    ]
+  },
+  "5": {
+    "visible": [
+      {
+        "input": [
+          [
+            1,
+            2,
+            5
+          ],
+          11
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          [
+            2
+          ],
+          3
+        ],
+        "expected": -1
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            1
+          ],
+          0
+        ],
+        "expected": 0
+      },
+      {
+        "input": [
+          [
+            1,
+            3,
+            4
+          ],
+          6
+        ],
+        "expected": 2
+      }
+    ]
+  },
+  "6": {
+    "visible": [
+      {
+        "input": [
+          [
+            100,
+            4,
+            200,
+            1,
+            3,
+            2
+          ]
+        ],
+        "expected": 4
+      },
+      {
+        "input": [
+          [
+            0,
+            3,
+            7,
+            2,
+            5,
+            8,
+            4,
+            6,
+            0,
+            1
+          ]
+        ],
+        "expected": 9
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            1,
+            2,
+            0,
+            1
+          ]
+        ],
+        "expected": 3
+      }
+    ]
+  },
+  "7": {
+    "visible": [
+      {
+        "input": [
+          [
+            1,
+            8,
+            6,
+            2,
+            5,
+            4,
+            8,
+            3,
+            7
+          ]
+        ],
+        "expected": 49
+      },
+      {
+        "input": [
+          [
+            1,
+            1
+          ]
+        ],
+        "expected": 1
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            2,
+            3,
+            4,
+            5,
+            18,
+            17,
+            6
+          ]
+        ],
+        "expected": 17
+      }
+    ]
+  },
+  "8": {
+    "visible": [
+      {
+        "input": [
+          [
+            4,
+            5,
+            6,
+            7,
+            0,
+            1,
+            2
+          ],
+          0
+        ],
+        "expected": 4
+      },
+      {
+        "input": [
+          [
+            4,
+            5,
+            6,
+            7,
+            0,
+            1,
+            2
+          ],
+          3
+        ],
+        "expected": -1
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            1
+          ],
+          0
+        ],
+        "expected": -1
+      },
+      {
+        "input": [
+          [
+            1
+          ],
+          1
+        ],
+        "expected": 0
+      }
+    ]
+  },
+  "9": {
+    "visible": [
+      {
+        "input": [
+          [
+            3,
+            4,
+            5,
+            1,
+            2
+          ]
+        ],
+        "expected": 1
+      },
+      {
+        "input": [
+          [
+            4,
+            5,
+            6,
+            7,
+            0,
+            1,
+            2
+          ]
+        ],
+        "expected": 0
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            11,
+            13,
+            15,
+            17
+          ]
+        ],
+        "expected": 11
+      }
+    ]
+  },
+  "10": {
+    "visible": [
+      {
+        "input": [
+          [
+            1,
+            2,
+            3,
+            1
+          ]
+        ],
+        "expected": 4
+      },
+      {
+        "input": [
+          [
+            2,
+            7,
+            9,
+            3,
+            1
+          ]
+        ],
+        "expected": 12
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            2,
+            1,
+            1,
+            2
+          ]
+        ],
+        "expected": 4
+      }
+    ]
+  },
+  "11": {
+    "visible": [
+      {
+        "input": [
+          [
+            2,
+            3,
+            1,
+            1,
+            4
+          ]
+        ],
+        "expected": true
+      },
+      {
+        "input": [
+          [
+            3,
+            2,
+            1,
+            0,
+            4
+          ]
+        ],
+        "expected": false
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            0
+          ]
+        ],
+        "expected": true
+      }
+    ]
+  },
+  "12": {
+    "visible": [
+      {
+        "input": [
+          "12"
+        ],
+        "expected": 2
+      },
+      {
+        "input": [
+          "226"
+        ],
+        "expected": 3
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          "06"
+        ],
+        "expected": 0
+      },
+      {
+        "input": [
+          "11106"
+        ],
+        "expected": 2
+      }
+    ]
+  },
+  "13": {
+    "visible": [
+      {
+        "input": [
+          "leetcode",
+          [
+            "leet",
+            "code"
+          ]
+        ],
+        "expected": true
+      },
+      {
+        "input": [
+          "catsandog",
+          [
+            "cats",
+            "dog",
+            "sand",
+            "and",
+            "cat"
+          ]
+        ],
+        "expected": false
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          "applepenapple",
+          [
+            "apple",
+            "pen"
+          ]
+        ],
+        "expected": true
+      }
+    ]
+  },
+  "14": {
+    "visible": [
+      {
+        "input": [
+          [
+            73,
+            74,
+            75,
+            71,
+            69,
+            72,
+            76,
+            73
+          ]
+        ],
+        "expected": [
+          1,
+          1,
+          4,
+          2,
+          1,
+          1,
+          0,
+          0
+        ]
+      },
+      {
+        "input": [
+          [
+            30,
+            40,
+            50,
+            60
+          ]
+        ],
+        "expected": [
+          1,
+          1,
+          1,
+          0
+        ]
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            30,
+            60,
+            90
+          ]
+        ],
+        "expected": [
+          1,
+          1,
+          0
+        ]
+      }
     ]
   }
 }
