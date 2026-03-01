@@ -44,7 +44,6 @@
         <h3 id="modeSectionTitle">Mode</h3>
         <div id="memoMode" class="mode-panel">
           <h3>Self-Explain</h3>
-          <p class="helper-text">문제 접근법, 핵심 아이디어, 시간복잡도/공간복잡도를 직접 설명해보세요. (자동저장 + 최종저장)</p>
           <textarea id="memoInput" class="memo-input"></textarea>
           <div class="row">
             <span id="memoSavedAt" class="muted">아직 저장되지 않았습니다.</span>
@@ -56,11 +55,9 @@
 
         <div id="assistantMode" class="mode-panel">
           <h3>Chat</h3>
-          <p class="helper-text">질문을 입력하면 코드 스니펫 + 해설을 제공합니다. 멀티턴 메모리와 로그 저장을 지원합니다.</p>
           <div class="row">
             <label class="muted">Session:</label>
             <input id="chatSessionId" class="text-input" readonly />
-            <button id="newSessionBtn" class="btn secondary">새 세션</button>
             <button id="downloadLogBtn" class="btn secondary">로그 다운로드</button>
           </div>
           <div id="chatHistory" class="chat-history"></div>

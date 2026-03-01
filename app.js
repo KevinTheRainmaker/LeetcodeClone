@@ -45,7 +45,6 @@ const els = {
   memoFinalSaveBtn: document.getElementById("memoFinalSaveBtn"),
 
   chatSessionId: document.getElementById("chatSessionId"),
-  newSessionBtn: document.getElementById("newSessionBtn"),
   downloadLogBtn: document.getElementById("downloadLogBtn"),
   chatHistory: document.getElementById("chatHistory"),
   chatInput: document.getElementById("chatInput"),
@@ -83,6 +82,20 @@ async function logEvent(action, detail = {}) {
       body: JSON.stringify(row)
     });
   } catch {}
+}
+
+
+function chatKey() {
+  return `chat:${runArgs.userId}:set${runArgs.setId}:mode${runArgs.mode}`;
+}
+
+function saveChatHistory() {
+  localStorage.setItem(chatKey(), els.chatHistory.innerHTML);
+}
+
+function loadChatHistory() {
+  const saved = localStorage.getItem(chatKey());
+  if (saved) els.chatHistory.innerHTML = saved;
 }
 
 function getMemoKey() {
@@ -190,6 +203,7 @@ function renderProblem() {
   loadMemo();
   updateProgressBadge();
   els.chatSessionId.value = chatSessionId;
+  loadChatHistory();
 }
 
 function saveCode() {
@@ -262,6 +276,7 @@ function appendChat(role, text) {
   div.textContent = `${role === "user" ? "나" : "GPT"}: ${text}`;
   els.chatHistory.appendChild(div);
   els.chatHistory.scrollTop = els.chatHistory.scrollHeight;
+  saveChatHistory();
 }
 
 async function sendChat() {
@@ -316,12 +331,6 @@ async function downloadLog() {
   }
 }
 
-function newChatSession() {
-  chatSessionId = crypto.randomUUID();
-  localStorage.setItem("chatSessionId", chatSessionId);
-  els.chatSessionId.value = chatSessionId;
-  els.chatHistory.innerHTML = "";
-}
 
 els.editor.addEventListener("input", saveCode);
 els.runBtn.addEventListener("click", async () => {
@@ -339,7 +348,6 @@ els.nextProblemBtn.addEventListener("click", nextProblem);
 els.memoInput.addEventListener("input", autosaveMemo);
 els.memoFinalSaveBtn.addEventListener("click", finalSaveMemo);
 els.chatSendBtn.addEventListener("click", sendChat);
-els.newSessionBtn.addEventListener("click", newChatSession);
 els.downloadLogBtn.addEventListener("click", downloadLog);
 
 applyFixedMode();
