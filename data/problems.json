@@ -1,0 +1,71 @@
+[
+  {
+    "id": 1,
+    "slug": "two-sum",
+    "title": "Two Sum",
+    "difficulty": "easy",
+    "functionName": "twoSum",
+    "description": "정수 배열 nums와 정수 target이 주어질 때, 두 수의 합이 target이 되는 인덱스 두 개를 반환하세요.",
+    "examples": [
+      {
+        "input": "nums = [2,7,11,15], target = 9",
+        "output": "[0,1]"
+      },
+      {
+        "input": "nums = [3,2,4], target = 6",
+        "output": "[1,2]"
+      }
+    ],
+    "starter": {
+      "javascript": "function twoSum(nums, target) {\n  // TODO\n}\n",
+      "python": "def two_sum(nums, target):\n    # TODO\n    pass\n",
+      "cpp": "vector<int> twoSum(vector<int>& nums, int target) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 2,
+    "slug": "valid-parentheses",
+    "title": "Valid Parentheses",
+    "difficulty": "easy",
+    "functionName": "isValid",
+    "description": "문자열 s가 괄호 문자열일 때 유효한 괄호인지 판별하세요.",
+    "examples": [
+      {
+        "input": "s = \"()[]{}\"",
+        "output": "true"
+      },
+      {
+        "input": "s = \"(]\"",
+        "output": "false"
+      }
+    ],
+    "starter": {
+      "javascript": "function isValid(s) {\n  // TODO\n}\n",
+      "python": "def is_valid(s):\n    # TODO\n    pass\n",
+      "cpp": "bool isValid(string s) {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 3,
+    "slug": "longest-substring-without-repeating-characters",
+    "title": "Longest Substring Without Repeating Characters",
+    "difficulty": "medium",
+    "functionName": "lengthOfLongestSubstring",
+    "description": "중복 문자가 없는 가장 긴 부분 문자열의 길이를 반환하세요.",
+    "examples": [
+      {
+        "input": "s = \"abcabcbb\"",
+        "output": "3"
+      },
+      {
+        "input": "s = \"bbbbb\"",
+        "output": "1"
+      }
+    ],
+    "starter": {
+      "javascript": "function lengthOfLongestSubstring(s) {\n  // TODO\n}\n",
+      "python": "def length_of_longest_substring(s):\n    # TODO\n    pass\n",
+      "cpp": "int lengthOfLongestSubstring(string s) {\n    // TODO\n}\n"
+    }
+  }
+]

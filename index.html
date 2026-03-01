@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetCode Clone</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="logo">🧩 LeetCode Clone</div>
+      <div class="controls">
+        <select id="languageSelect">
+          <option value="javascript">JavaScript</option>
+          <option value="python">Python</option>
+          <option value="cpp">C++</option>
+        </select>
+        <button id="runBtn" class="btn secondary">Run</button>
+        <button id="submitBtn" class="btn primary">Submit</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel left" id="problemList"></aside>
+
+      <section class="panel middle">
+        <div class="problem-header">
+          <h2 id="problemTitle"></h2>
+          <span id="difficulty" class="badge"></span>
+        </div>
+        <p id="problemDesc" class="problem-desc"></p>
+
+        <h3>Examples</h3>
+        <div id="examples"></div>
+      </section>
+
+      <section class="panel right">
+        <textarea id="editor" spellcheck="false"></textarea>
+        <div class="result-wrap">
+          <h3>Result</h3>
+          <pre id="result">아직 실행 결과가 없습니다.</pre>
+        </div>
+      </section>
+    </main>
+
+    <section class="extra-layout">
+      <section class="panel">
+        <div class="mode-tabs">
+          <button id="tabMemo" class="btn secondary active">메모장 모드</button>
+          <button id="tabAssistant" class="btn secondary">답변제공 모드</button>
+        </div>
+
+        <div id="memoMode" class="mode-panel active">
+          <h3>알고리즘 자기설명 메모장</h3>
+          <p class="helper-text">문제 접근법, 핵심 아이디어, 시간복잡도/공간복잡도를 직접 설명해보세요. (자동저장 + 최종저장)</p>
+          <textarea id="memoInput" class="memo-input" placeholder="예: Two Sum은 해시맵으로 O(n)에 해결 가능...&#10;1) 왜 이 방법을 택했는지&#10;2) 엣지케이스&#10;3) 복잡도"></textarea>
+          <div class="row">
+            <span id="memoSavedAt" class="muted">아직 저장되지 않았습니다.</span>
+            <div>
+              <button id="memoFinalSaveBtn" class="btn primary">최종저장</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="assistantMode" class="mode-panel">
+          <h3>GPT 답변제공</h3>
+          <p class="helper-text">질문을 입력하면 코드 스니펫 + 해설을 제공합니다. 멀티턴 메모리와 로그 저장을 지원합니다.</p>
+          <div class="row">
+            <label class="muted">Session:</label>
+            <input id="chatSessionId" class="text-input" readonly />
+            <button id="newSessionBtn" class="btn secondary">새 세션</button>
+            <button id="downloadLogBtn" class="btn secondary">로그 다운로드</button>
+          </div>
+          <div id="chatHistory" class="chat-history"></div>
+          <textarea id="chatInput" class="memo-input" placeholder="예: Two Sum을 Python으로 풀이해주고, 왜 해시맵이 맞는지 설명해줘"></textarea>
+          <div class="row">
+            <span class="muted">모델 응답은 judge-server를 통해 호출됩니다.</span>
+            <button id="chatSendBtn" class="btn primary">질문 보내기</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <script src="app.js"></script>
+  </body>
+</html>
