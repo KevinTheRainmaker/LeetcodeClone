@@ -3,7 +3,7 @@ const JUDGE_API_BASE = localStorage.getItem("judgeApiBase") || "http://127.0.0.1
 let problems = [];
 let testcases = {};
 let selectedProblem = null;
-let currentMode = "memo";
+let currentMode = localStorage.getItem("runMode") || ""; // memo|assistant|socratic
 let chatSessionId = localStorage.getItem("chatSessionId") || crypto.randomUUID();
 
 const els = {
@@ -18,10 +18,17 @@ const els = {
   runBtn: document.getElementById("runBtn"),
   submitBtn: document.getElementById("submitBtn"),
 
+  modeLauncher: document.getElementById("modeLauncher"),
+  startupModeSelect: document.getElementById("startupModeSelect"),
+  startModeBtn: document.getElementById("startModeBtn"),
+  resetModeBtn: document.getElementById("resetModeBtn"),
+  modeTabs: document.getElementById("modeTabs"),
   tabMemo: document.getElementById("tabMemo"),
   tabAssistant: document.getElementById("tabAssistant"),
+  tabSocratic: document.getElementById("tabSocratic"),
   memoMode: document.getElementById("memoMode"),
   assistantMode: document.getElementById("assistantMode"),
+  socraticMode: document.getElementById("socraticMode"),
 
   memoInput: document.getElementById("memoInput"),
   memoSavedAt: document.getElementById("memoSavedAt"),
@@ -69,13 +76,32 @@ function loadMemo() {
   els.memoSavedAt.textContent = memo ? `불러옴: ${nowKstString()}` : "아직 저장되지 않았습니다.";
 }
 
-function switchMode(mode) {
+function applyRunMode(mode) {
   currentMode = mode;
-  const memoOn = mode === "memo";
-  els.memoMode.classList.toggle("active", memoOn);
-  els.assistantMode.classList.toggle("active", !memoOn);
-  els.tabMemo.classList.toggle("active", memoOn);
-  els.tabAssistant.classList.toggle("active", !memoOn);
+  localStorage.setItem("runMode", mode);
+
+  els.modeLauncher.style.display = "flex";
+  els.startupModeSelect.value = mode;
+
+  els.memoMode.classList.toggle("active", mode === "memo");
+  els.assistantMode.classList.toggle("active", mode === "assistant");
+  els.socraticMode.classList.toggle("active", mode === "socratic");
+
+  els.tabMemo.classList.toggle("active", mode === "memo");
+  els.tabAssistant.classList.toggle("active", mode === "assistant");
+  els.tabSocratic.classList.toggle("active", mode === "socratic");
+}
+
+function initRunMode() {
+  if (!currentMode) {
+    // 기본은 선택창 노출, 메모장 프리뷰
+    els.startupModeSelect.value = "memo";
+    els.memoMode.classList.add("active");
+    els.assistantMode.classList.remove("active");
+    els.socraticMode.classList.remove("active");
+    return;
+  }
+  applyRunMode(currentMode);
 }
 
 async function loadData() {
@@ -170,11 +196,7 @@ function formatJudgeResponse(resp, mode, language) {
   if (Array.isArray(resp.caseResults) && resp.caseResults.length) {
     lines.push("\n[Case Results]");
     resp.caseResults.forEach((c) => {
-      lines.push(`
-#${c.index} ${c.passed ? "✅" : "❌"}
-input: ${JSON.stringify(c.input)}
-expected: ${JSON.stringify(c.expected)}
-actual: ${JSON.stringify(c.actual)}${c.error ? `\nerror: ${c.error}` : ""}`);
+      lines.push(`\n#${c.index} ${c.passed ? "✅" : "❌"}\ninput: ${JSON.stringify(c.input)}\nexpected: ${JSON.stringify(c.expected)}\nactual: ${JSON.stringify(c.actual)}${c.error ? `\nerror: ${c.error}` : ""}`);
     });
   }
   return lines.join("\n");
@@ -288,13 +310,18 @@ els.submitBtn.addEventListener("click", async () => {
   els.result.textContent = await judge("submit");
 });
 
-els.tabMemo.addEventListener("click", () => switchMode("memo"));
-els.tabAssistant.addEventListener("click", () => switchMode("assistant"));
+els.startModeBtn.addEventListener("click", () => applyRunMode(els.startupModeSelect.value));
+els.resetModeBtn.addEventListener("click", () => {
+  localStorage.removeItem("runMode");
+  currentMode = "";
+  initRunMode();
+});
+
 els.memoInput.addEventListener("input", autosaveMemo);
 els.memoFinalSaveBtn.addEventListener("click", finalSaveMemo);
 els.chatSendBtn.addEventListener("click", sendChat);
 els.newSessionBtn.addEventListener("click", newChatSession);
 els.downloadLogBtn.addEventListener("click", downloadLog);
 
-switchMode("memo");
+initRunMode();
 loadData();

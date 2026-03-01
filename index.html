@@ -45,12 +45,24 @@
 
     <section class="extra-layout">
       <section class="panel">
-        <div class="mode-tabs">
-          <button id="tabMemo" class="btn secondary active">메모장 모드</button>
-          <button id="tabAssistant" class="btn secondary">답변제공 모드</button>
+        <div class="mode-launcher" id="modeLauncher">
+          <label class="muted" for="startupModeSelect">실행 모드 선택:</label>
+          <select id="startupModeSelect">
+            <option value="memo">메모장 모드</option>
+            <option value="assistant">답변제공 모드</option>
+            <option value="socratic">소크라틱 모드</option>
+          </select>
+          <button id="startModeBtn" class="btn primary">이 모드로 실행</button>
+          <button id="resetModeBtn" class="btn secondary">모드 재설정</button>
         </div>
 
-        <div id="memoMode" class="mode-panel active">
+        <div class="mode-tabs" id="modeTabs">
+          <button id="tabMemo" class="btn secondary">메모장 모드</button>
+          <button id="tabAssistant" class="btn secondary">답변제공 모드</button>
+          <button id="tabSocratic" class="btn secondary">소크라틱 모드</button>
+        </div>
+
+        <div id="memoMode" class="mode-panel">
           <h3>알고리즘 자기설명 메모장</h3>
           <p class="helper-text">문제 접근법, 핵심 아이디어, 시간복잡도/공간복잡도를 직접 설명해보세요. (자동저장 + 최종저장)</p>
           <textarea id="memoInput" class="memo-input" placeholder="예: Two Sum은 해시맵으로 O(n)에 해결 가능...&#10;1) 왜 이 방법을 택했는지&#10;2) 엣지케이스&#10;3) 복잡도"></textarea>
@@ -77,6 +89,12 @@
             <span class="muted">모델 응답은 judge-server를 통해 호출됩니다.</span>
             <button id="chatSendBtn" class="btn primary">질문 보내기</button>
           </div>
+        </div>
+
+        <div id="socraticMode" class="mode-panel">
+          <h3>소크라틱 모드</h3>
+          <p class="helper-text">요청하신 대로 현재는 창을 비워둔 상태입니다.</p>
+          <div class="blank-window"></div>
         </div>
       </section>
     </section>

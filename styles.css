@@ -160,3 +160,24 @@ select, .btn, .text-input {
 @media (max-width: 1024px) {
   .layout { grid-template-columns: 1fr; }
 }
+
+
+.mode-launcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.mode-tabs {
+  display: none; /* 실행 모드 고정 정책: 탭 전환 비활성 */
+}
+
+.blank-window {
+  width: 100%;
+  min-height: 260px;
+  border: 1px dashed #334155;
+  border-radius: 10px;
+  background: #0b1220;
+}
