@@ -30,6 +30,8 @@ const els = {
   result: document.getElementById("result"),
 
   progressBadge: document.getElementById("progressBadge"),
+  currentModeBadge: document.getElementById("currentModeBadge"),
+  modeSectionTitle: document.getElementById("modeSectionTitle"),
   runBtn: document.getElementById("runBtn"),
   submitBtn: document.getElementById("submitBtn"),
   nextProblemBtn: document.getElementById("nextProblemBtn"),
@@ -119,6 +121,10 @@ function applyFixedMode() {
   els.memoMode.classList.toggle("active", runArgs.mode === "memo");
   els.assistantMode.classList.toggle("active", runArgs.mode === "assistant");
   els.socraticMode.classList.toggle("active", runArgs.mode === "socratic");
+
+  const modeLabel = runArgs.mode === "memo" ? "SELF-EXPLAIN" : runArgs.mode === "assistant" ? "CHAT" : "SOCRATIC";
+  els.currentModeBadge.textContent = `MODE: ${modeLabel}`;
+  els.modeSectionTitle.textContent = `${modeLabel} MODE`;
 }
 
 function updateProgressBadge() {
