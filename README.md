@@ -7,7 +7,14 @@
 
 ## 실행 화면
 
-![LeetCode Clone 실행 화면](docs/screenshot-main.png)
+### 메모장 모드
+![메모장 모드](docs/screenshot-memo-mode.png)
+
+### 답변제공 모드
+![답변제공 모드](docs/screenshot-assistant-mode.png)
+
+### 소크라틱 모드
+![소크라틱 모드](docs/screenshot-socratic-mode.png)
 
 ## 경로
 
