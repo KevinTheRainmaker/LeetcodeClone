@@ -53,6 +53,18 @@ class ChatRequest(BaseModel):
     question: str
     problemId: Optional[int] = None
     language: Optional[str] = None
+    userId: Optional[str] = None
+
+
+class ClientLogRequest(BaseModel):
+    ts: str
+    userId: str
+    setId: int
+    mode: str
+    problemId: Optional[int] = None
+    index: int = 0
+    action: str
+    detail: Dict[str, Any] = {}
 
 
 def load_json(path: Path):
@@ -408,3 +420,13 @@ def assistant_logs(session_id: str):
     if not lp.exists():
         raise HTTPException(status_code=404, detail="Log not found")
     return lp.read_text(encoding="utf-8")
+
+
+@app.post("/client/log")
+def client_log(req: ClientLogRequest):
+    log_dir = Path(__file__).resolve().parent / "client_logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    fpath = log_dir / f"{req.userId}_set{req.setId}.jsonl"
+    with fpath.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(req.model_dump(), ensure_ascii=False) + "\n")
+    return {"ok": True}

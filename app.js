@@ -2,14 +2,25 @@ const JUDGE_API_BASE = localStorage.getItem("judgeApiBase") || "http://127.0.0.1
 
 let problems = [];
 let testcases = {};
+let problemSets = [];
+
 let selectedProblem = null;
-let problemSets = {};
-let activeSetId = localStorage.getItem("activeProblemSetId") || "";
+let activeSet = null;
 let activeSetQueue = [];
 let activeSetIndex = 0;
 
-let currentMode = localStorage.getItem("runMode") || ""; // memo|assistant|socratic
 let chatSessionId = localStorage.getItem("chatSessionId") || crypto.randomUUID();
+
+const params = new URLSearchParams(window.location.search);
+const runArgs = {
+  setId: Number(params.get("set") || params.get("set_id") || 1),
+  mode: (params.get("mode") || "memo").toLowerCase(),
+  userId: params.get("user_id") || "anonymous",
+  language: (params.get("lang") || "javascript").toLowerCase()
+};
+
+const allowedModes = new Set(["memo", "assistant", "socratic"]);
+if (!allowedModes.has(runArgs.mode)) runArgs.mode = "memo";
 
 const els = {
   list: document.getElementById("problemList"),
@@ -19,24 +30,14 @@ const els = {
   examples: document.getElementById("examples"),
   editor: document.getElementById("editor"),
   result: document.getElementById("result"),
-  lang: document.getElementById("languageSelect"),
+
+  setBadge: document.getElementById("setBadge"),
+  modeBadge: document.getElementById("modeBadge"),
+  userBadge: document.getElementById("userBadge"),
   runBtn: document.getElementById("runBtn"),
   submitBtn: document.getElementById("submitBtn"),
-
-  problemSetSelect: document.getElementById("problemSetSelect"),
-  applySetBtn: document.getElementById("applySetBtn"),
-  prevProblemBtn: document.getElementById("prevProblemBtn"),
   nextProblemBtn: document.getElementById("nextProblemBtn"),
-  progressBadge: document.getElementById("progressBadge"),
 
-  modeLauncher: document.getElementById("modeLauncher"),
-  startupModeSelect: document.getElementById("startupModeSelect"),
-  startModeBtn: document.getElementById("startModeBtn"),
-  resetModeBtn: document.getElementById("resetModeBtn"),
-  modeTabs: document.getElementById("modeTabs"),
-  tabMemo: document.getElementById("tabMemo"),
-  tabAssistant: document.getElementById("tabAssistant"),
-  tabSocratic: document.getElementById("tabSocratic"),
   memoMode: document.getElementById("memoMode"),
   assistantMode: document.getElementById("assistantMode"),
   socraticMode: document.getElementById("socraticMode"),
@@ -57,9 +58,40 @@ function nowKstString() {
   return new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 }
 
+function logKey() {
+  return `runlog:${runArgs.userId}:set${runArgs.setId}`;
+}
+
+async function logEvent(action, detail = {}) {
+  const row = {
+    ts: new Date().toISOString(),
+    userId: runArgs.userId,
+    setId: runArgs.setId,
+    mode: runArgs.mode,
+    problemId: selectedProblem?.id || null,
+    index: activeSetIndex,
+    action,
+    detail
+  };
+
+  const logs = JSON.parse(localStorage.getItem(logKey()) || "[]");
+  logs.push(row);
+  localStorage.setItem(logKey(), JSON.stringify(logs));
+
+  try {
+    await fetch(`${JUDGE_API_BASE}/client/log`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(row)
+    });
+  } catch {
+    // ignore network log failures
+  }
+}
+
 function getMemoKey() {
-  if (!selectedProblem) return "memo-default";
-  return `memo-${selectedProblem.id}`;
+  if (!selectedProblem) return `memo:${runArgs.userId}:default`;
+  return `memo:${runArgs.userId}:set${runArgs.setId}:p${selectedProblem.id}`;
 }
 
 function autosaveMemo() {
@@ -71,13 +103,16 @@ function autosaveMemo() {
 function finalSaveMemo() {
   if (!selectedProblem) return;
   const payload = {
+    userId: runArgs.userId,
+    setId: runArgs.setId,
     problemId: selectedProblem.id,
     problemTitle: selectedProblem.title,
     savedAt: nowKstString(),
     content: els.memoInput.value
   };
-  localStorage.setItem(`${getMemoKey()}-final`, JSON.stringify(payload));
+  localStorage.setItem(`${getMemoKey()}:final`, JSON.stringify(payload));
   els.memoSavedAt.textContent = `최종저장 완료: ${payload.savedAt}`;
+  logEvent("memo_final_save");
 }
 
 function loadMemo() {
@@ -87,143 +122,68 @@ function loadMemo() {
   els.memoSavedAt.textContent = memo ? `불러옴: ${nowKstString()}` : "아직 저장되지 않았습니다.";
 }
 
-function applyRunMode(mode) {
-  currentMode = mode;
-  localStorage.setItem("runMode", mode);
-
-  els.modeLauncher.style.display = "flex";
-  els.startupModeSelect.value = mode;
-
-  els.memoMode.classList.toggle("active", mode === "memo");
-  els.assistantMode.classList.toggle("active", mode === "assistant");
-  els.socraticMode.classList.toggle("active", mode === "socratic");
-
-  els.tabMemo.classList.toggle("active", mode === "memo");
-  els.tabAssistant.classList.toggle("active", mode === "assistant");
-  els.tabSocratic.classList.toggle("active", mode === "socratic");
-}
-
-function initRunMode() {
-  if (!currentMode) {
-    els.startupModeSelect.value = "memo";
-    els.memoMode.classList.add("active");
-    els.assistantMode.classList.remove("active");
-    els.socraticMode.classList.remove("active");
-    return;
-  }
-  applyRunMode(currentMode);
-}
-
-function buildProblemSets() {
-  const allIds = problems.map((p) => p.id);
-  const mediumIds = problems.filter((p) => p.difficulty === "medium").map((p) => p.id);
-  const easyIds = problems.filter((p) => p.difficulty === "easy").map((p) => p.id);
-
-  problemSets = {
-    "all-sequential": { name: "전체 문제 세트(순차)", ids: allIds },
-    "medium-sequential": { name: "중급 문제 세트(순차)", ids: mediumIds },
-    "easy-sequential": { name: "입문 문제 세트(순차)", ids: easyIds }
-  };
-
-  if (!activeSetId || !problemSets[activeSetId]) {
-    activeSetId = mediumIds.length ? "medium-sequential" : "all-sequential";
-  }
-}
-
-function renderProblemSetSelect() {
-  els.problemSetSelect.innerHTML = "";
-  for (const [setId, setData] of Object.entries(problemSets)) {
-    const opt = document.createElement("option");
-    opt.value = setId;
-    opt.textContent = `${setData.name} (${setData.ids.length})`;
-    if (setId === activeSetId) opt.selected = true;
-    els.problemSetSelect.appendChild(opt);
-  }
-}
-
-function getProgressKey(setId) {
-  return `setProgress:${setId}`;
-}
-
-function activateProblemSet(setId, resetProgress = false) {
-  if (!problemSets[setId]) return;
-  activeSetId = setId;
-  localStorage.setItem("activeProblemSetId", setId);
-
-  activeSetQueue = [...problemSets[setId].ids];
-  const saved = Number(localStorage.getItem(getProgressKey(setId)) || 0);
-  activeSetIndex = resetProgress ? 0 : Math.min(Math.max(saved, 0), Math.max(0, activeSetQueue.length - 1));
-
-  localStorage.setItem(getProgressKey(setId), String(activeSetIndex));
-
-  const currentId = activeSetQueue[activeSetIndex];
-  selectedProblem = problems.find((p) => p.id === currentId) || problems[0] || null;
-
-  updateProgressUI();
-  render();
-}
-
-function moveProblem(delta) {
-  if (!activeSetQueue.length) return;
-  const next = activeSetIndex + delta;
-  if (next < 0 || next >= activeSetQueue.length) return;
-  activeSetIndex = next;
-  localStorage.setItem(getProgressKey(activeSetId), String(activeSetIndex));
-  const currentId = activeSetQueue[activeSetIndex];
-  selectedProblem = problems.find((p) => p.id === currentId) || selectedProblem;
-  updateProgressUI();
-  renderProblem();
-  renderList();
-}
-
-function updateProgressUI() {
-  const total = activeSetQueue.length;
-  const current = total ? activeSetIndex + 1 : 0;
-  els.progressBadge.textContent = `${current} / ${total}`;
-  els.prevProblemBtn.disabled = activeSetIndex <= 0;
-  els.nextProblemBtn.disabled = activeSetIndex >= total - 1;
+function applyFixedMode() {
+  els.memoMode.classList.toggle("active", runArgs.mode === "memo");
+  els.assistantMode.classList.toggle("active", runArgs.mode === "assistant");
+  els.socraticMode.classList.toggle("active", runArgs.mode === "socratic");
 }
 
 async function loadData() {
   try {
-    const [problemsRes, testcasesRes] = await Promise.all([
+    const [problemsRes, testcasesRes, setsRes] = await Promise.all([
       fetch("./data/problems.json"),
-      fetch("./data/testcases.json")
+      fetch("./data/testcases.json"),
+      fetch("./data/problem_sets.json")
     ]);
 
-    if (!problemsRes.ok || !testcasesRes.ok) {
-      throw new Error("문제/테스트케이스 파일을 불러오지 못했습니다.");
+    if (!problemsRes.ok || !testcasesRes.ok || !setsRes.ok) {
+      throw new Error("문제/테스트케이스/문제세트 파일을 불러오지 못했습니다.");
     }
 
     problems = await problemsRes.json();
     testcases = await testcasesRes.json();
+    problemSets = (await setsRes.json()).sets || [];
 
-    if (!problems.length) throw new Error("problems.json이 비어 있습니다.");
+    activeSet = problemSets.find((s) => Number(s.setId) === Number(runArgs.setId));
+    if (!activeSet) throw new Error(`set_id=${runArgs.setId} 문제세트를 찾을 수 없습니다.`);
 
-    buildProblemSets();
-    renderProblemSetSelect();
-    activateProblemSet(activeSetId);
+    activeSetQueue = activeSet.problemIds || [];
+    if (!activeSetQueue.length) throw new Error(`set_id=${runArgs.setId} 문제세트가 비어 있습니다.`);
+
+    activeSetIndex = 0;
+    selectedProblem = problems.find((p) => p.id === activeSetQueue[activeSetIndex]) || null;
+    if (!selectedProblem) throw new Error("문제세트의 problemId가 problems.json에 없습니다.");
+
+    initHeader();
+    render();
+    logEvent("session_start", { setName: activeSet.name });
   } catch (err) {
     els.result.textContent = `데이터 로드 실패: ${err.message}`;
   }
 }
 
+function initHeader() {
+  els.setBadge.textContent = `SET #${runArgs.setId}`;
+  els.modeBadge.textContent = `MODE: ${runArgs.mode.toUpperCase()}`;
+  els.userBadge.textContent = `USER: ${runArgs.userId}`;
+}
+
+function updateNextButton() {
+  const done = activeSetIndex >= activeSetQueue.length - 1;
+  els.nextProblemBtn.disabled = done;
+  if (done) els.nextProblemBtn.textContent = "완료";
+}
+
 function renderList() {
-  const setName = problemSets[activeSetId]?.name || "(세트 없음)";
-  els.list.innerHTML = `<h3>Problem Set</h3><div class="meta">${setName}</div>`;
-
-  activeSetQueue.forEach((problemId, idx) => {
-    const p = problems.find((x) => x.id === problemId);
+  els.list.innerHTML = `<h3>Problem Set</h3><div class="meta">${activeSet.name}</div>`;
+  activeSetQueue.forEach((pid, idx) => {
+    const p = problems.find((x) => x.id === pid);
     if (!p) return;
-
     const div = document.createElement("div");
     const cls = p.id === selectedProblem?.id ? "active" : "";
     div.className = `problem-item ${cls}`;
-
-    const prefix = idx < activeSetIndex ? "✅" : idx === activeSetIndex ? "▶" : "•";
-    div.innerHTML = `<div class="title">${prefix} ${idx + 1}. ${p.title}</div><div class="meta">${p.difficulty.toUpperCase()}</div>`;
-
-    // 문제 직접 선택은 비활성 (순차 진행 전용)
+    const mark = idx < activeSetIndex ? "✅" : idx === activeSetIndex ? "▶" : "•";
+    div.innerHTML = `<div class="title">${mark} ${idx + 1}. ${p.title}</div><div class="meta">${p.difficulty.toUpperCase()}</div>`;
     els.list.appendChild(div);
   });
 }
@@ -231,7 +191,7 @@ function renderList() {
 function renderProblem() {
   if (!selectedProblem) return;
 
-  els.title.textContent = `${selectedProblem.id}. ${selectedProblem.title}`;
+  els.title.textContent = `${activeSetIndex + 1}. ${selectedProblem.title}`;
   els.difficulty.textContent = selectedProblem.difficulty.toUpperCase();
   els.difficulty.className = `badge ${selectedProblem.difficulty}`;
   els.desc.textContent = selectedProblem.description;
@@ -250,24 +210,25 @@ function renderProblem() {
   info.innerHTML = `<strong>Testcases:</strong> visible ${tc.visible.length}개 / hidden ${tc.hidden.length}개`;
   els.examples.appendChild(info);
 
-  const key = `code-${selectedProblem.id}-${els.lang.value}`;
+  const key = `code:${runArgs.userId}:set${runArgs.setId}:p${selectedProblem.id}:${runArgs.language}`;
   const saved = localStorage.getItem(key);
-  els.editor.value = saved || selectedProblem.starter[els.lang.value] || "";
+  els.editor.value = saved || selectedProblem.starter[runArgs.language] || selectedProblem.starter.javascript || "";
 
   loadMemo();
+  updateNextButton();
 }
 
 function saveCode() {
   if (!selectedProblem) return;
-  const key = `code-${selectedProblem.id}-${els.lang.value}`;
+  const key = `code:${runArgs.userId}:set${runArgs.setId}:p${selectedProblem.id}:${runArgs.language}`;
   localStorage.setItem(key, els.editor.value);
 }
 
-function formatJudgeResponse(resp, mode, language) {
+function formatJudgeResponse(resp, mode) {
   const lines = [
     resp.status || "Unknown",
     `Problem: ${selectedProblem.title}`,
-    `Language: ${language}`,
+    `Language: ${runArgs.language}`,
     `Mode: ${mode.toUpperCase()}`,
     `Passed: ${resp.passed ?? 0}/${resp.total ?? 0}`,
     `Runtime: ${resp.runtimeMs ?? 0} ms`
@@ -292,7 +253,7 @@ async function judge(mode) {
 
   const body = {
     problemId: selectedProblem.id,
-    language: els.lang.value,
+    language: runArgs.language,
     code: els.editor.value,
     mode
   };
@@ -305,10 +266,21 @@ async function judge(mode) {
     });
     const data = await res.json();
     if (!res.ok) return `Judge API Error (${res.status})\n${JSON.stringify(data)}`;
-    return formatJudgeResponse(data, mode, els.lang.value);
+    await logEvent(mode, { status: data.status, passed: data.passed, total: data.total });
+    return formatJudgeResponse(data, mode);
   } catch (e) {
+    await logEvent(mode, { error: e.message });
     return `채점 서버 연결 실패: ${e.message}\nJudge API: ${JUDGE_API_BASE}`;
   }
+}
+
+async function nextProblem() {
+  if (activeSetIndex >= activeSetQueue.length - 1) return;
+  activeSetIndex += 1;
+  const pid = activeSetQueue[activeSetIndex];
+  selectedProblem = problems.find((p) => p.id === pid) || selectedProblem;
+  render();
+  await logEvent("next_problem", { toIndex: activeSetIndex, toProblemId: pid });
 }
 
 function appendChat(role, text) {
@@ -322,7 +294,6 @@ function appendChat(role, text) {
 async function sendChat() {
   const q = els.chatInput.value.trim();
   if (!q) return;
-
   appendChat("user", q);
   els.chatInput.value = "";
   els.chatSendBtn.disabled = true;
@@ -335,7 +306,8 @@ async function sendChat() {
         sessionId: chatSessionId,
         question: q,
         problemId: selectedProblem?.id,
-        language: els.lang.value
+        language: runArgs.language,
+        userId: runArgs.userId
       })
     });
     const data = await res.json();
@@ -344,8 +316,10 @@ async function sendChat() {
       return;
     }
     appendChat("assistant", data.answer || "응답이 비어 있습니다.");
+    await logEvent("assistant_chat", { ok: true });
   } catch (e) {
     appendChat("assistant", `서버 연결 실패: ${e.message}`);
+    await logEvent("assistant_chat", { ok: false, error: e.message });
   } finally {
     els.chatSendBtn.disabled = false;
   }
@@ -382,7 +356,6 @@ function render() {
   els.chatSessionId.value = chatSessionId;
 }
 
-els.lang.addEventListener("change", renderProblem);
 els.editor.addEventListener("input", saveCode);
 els.runBtn.addEventListener("click", async () => {
   saveCode();
@@ -394,17 +367,7 @@ els.submitBtn.addEventListener("click", async () => {
   els.result.textContent = "Submitting...";
   els.result.textContent = await judge("submit");
 });
-
-els.applySetBtn.addEventListener("click", () => activateProblemSet(els.problemSetSelect.value));
-els.prevProblemBtn.addEventListener("click", () => moveProblem(-1));
-els.nextProblemBtn.addEventListener("click", () => moveProblem(1));
-
-els.startModeBtn.addEventListener("click", () => applyRunMode(els.startupModeSelect.value));
-els.resetModeBtn.addEventListener("click", () => {
-  localStorage.removeItem("runMode");
-  currentMode = "";
-  initRunMode();
-});
+els.nextProblemBtn.addEventListener("click", nextProblem);
 
 els.memoInput.addEventListener("input", autosaveMemo);
 els.memoFinalSaveBtn.addEventListener("click", finalSaveMemo);
@@ -412,5 +375,5 @@ els.chatSendBtn.addEventListener("click", sendChat);
 els.newSessionBtn.addEventListener("click", newChatSession);
 els.downloadLogBtn.addEventListener("click", downloadLog);
 
-initRunMode();
+applyFixedMode();
 loadData();

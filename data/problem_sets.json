@@ -1,0 +1,22 @@
+{
+  "sets": [
+    {
+      "setId": 1,
+      "name": "Medium Core A",
+      "description": "중급 핵심 세트 A (5문제)",
+      "problemIds": [3, 4, 5, 6, 7]
+    },
+    {
+      "setId": 2,
+      "name": "Medium Core B",
+      "description": "중급 핵심 세트 B (5문제)",
+      "problemIds": [8, 9, 10, 11, 12]
+    },
+    {
+      "setId": 3,
+      "name": "Medium Core C",
+      "description": "중급 핵심 세트 C (5문제)",
+      "problemIds": [13, 14, 4, 6, 10]
+    }
+  ]
+}

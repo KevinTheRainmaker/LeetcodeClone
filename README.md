@@ -106,3 +106,37 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - 네트워크/파일 접근 제어
 - 인증/권한 관리
 
+
+
+## 실행 인자(필수) - URL Query Args
+
+UI에서 문제세트/모드를 선택하지 않고, 실행 시 인자로 고정합니다.
+
+예시:
+
+`http://localhost:8080/?set=1&mode=memo&user_id=kevin`
+
+- `set` 또는 `set_id`: 문제 세트 번호 (`data/problem_sets.json`)
+- `mode`: `memo` | `assistant` | `socratic`
+- `user_id`: 실행 사용자 식별자 (로그 저장 키)
+- `lang` (옵션): `javascript` | `python` | `cpp` (기본 javascript)
+
+### UI 조작 제한
+
+현재 UI에서 가능한 조작은 다음 3개로 제한됩니다.
+- Run
+- Submit
+- 다음 문제
+
+이전 문제로 돌아가기 기능은 제공하지 않습니다.
+
+### 문제 세트 JSON
+
+- 파일: `data/problem_sets.json`
+- 각 세트는 약 5개 문제(`problemIds`)로 구성
+- `problems.json`, `testcases.json`과 분리되어 운영자가 직접 수정 가능
+
+### 실행 로그 저장
+
+- 프론트 localStorage 키: `runlog:<user_id>:set<setId>`
+- 서버 로그(JSONL): `judge-server/client_logs/<user_id>_set<setId>.jsonl`

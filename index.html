@@ -10,19 +10,12 @@
     <header class="topbar">
       <div class="logo">🧩 LeetCode Clone</div>
       <div class="controls">
-        <select id="problemSetSelect"></select>
-        <button id="applySetBtn" class="btn secondary">문제세트 적용</button>
-        <button id="prevProblemBtn" class="btn secondary">이전 문제</button>
-        <button id="nextProblemBtn" class="btn secondary">다음 문제</button>
-        <span id="progressBadge" class="badge medium">0 / 0</span>
-
-        <select id="languageSelect">
-          <option value="javascript">JavaScript</option>
-          <option value="python">Python</option>
-          <option value="cpp">C++</option>
-        </select>
+        <span id="setBadge" class="badge medium">SET #?</span>
+        <span id="modeBadge" class="badge easy">MODE: ?</span>
+        <span id="userBadge" class="badge hard">USER: ?</span>
         <button id="runBtn" class="btn secondary">Run</button>
         <button id="submitBtn" class="btn primary">Submit</button>
+        <button id="nextProblemBtn" class="btn primary">다음 문제</button>
       </div>
     </header>
 
@@ -51,23 +44,6 @@
 
     <section class="extra-layout">
       <section class="panel">
-        <div class="mode-launcher" id="modeLauncher">
-          <label class="muted" for="startupModeSelect">실행 모드 선택:</label>
-          <select id="startupModeSelect">
-            <option value="memo">메모장 모드</option>
-            <option value="assistant">답변제공 모드</option>
-            <option value="socratic">소크라틱 모드</option>
-          </select>
-          <button id="startModeBtn" class="btn primary">이 모드로 실행</button>
-          <button id="resetModeBtn" class="btn secondary">모드 재설정</button>
-        </div>
-
-        <div class="mode-tabs" id="modeTabs">
-          <button id="tabMemo" class="btn secondary">메모장 모드</button>
-          <button id="tabAssistant" class="btn secondary">답변제공 모드</button>
-          <button id="tabSocratic" class="btn secondary">소크라틱 모드</button>
-        </div>
-
         <div id="memoMode" class="mode-panel">
           <h3>알고리즘 자기설명 메모장</h3>
           <p class="helper-text">문제 접근법, 핵심 아이디어, 시간복잡도/공간복잡도를 직접 설명해보세요. (자동저장 + 최종저장)</p>
