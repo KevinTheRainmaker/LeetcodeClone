@@ -32,12 +32,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 ## URL 파라미터
 
-| 파라미터 | 값 | 설명 |
-|---|---|---|
-| `set` / `set_id` | 숫자 | 문제세트 번호 (`data/problem_sets.json` 기준) |
-| `mode` | `memo` / `assistant` / `socratic` | 학습 모드 |
-| `user_id` | 문자열 | 사용자 식별자 (로그 분리 저장용) |
-| `lang` | `javascript` / `python` / `cpp` | 코드 언어 (기본: `javascript`) |
+| 파라미터         | 값                                | 설명                                          |
+| ---------------- | --------------------------------- | --------------------------------------------- |
+| `set` / `set_id` | 숫자                              | 문제세트 번호 (`data/problem_sets.json` 기준) |
+| `mode`           | `memo` / `assistant` / `socratic` | 학습 모드                                     |
+| `user_id`        | 문자열                            | 사용자 식별자 (로그 분리 저장용)              |
+| `lang`           | `javascript` / `python` / `cpp`   | 코드 언어 (기본: `javascript`)                |
 
 ## 아키텍처
 
@@ -69,6 +69,7 @@ LeetcodeClone/
 - 모드별 UI 표시: `memo` / `assistant` / `socratic` 섹션을 CSS class로 전환
 
 **localStorage 키 패턴:**
+
 - 코드: `code:{userId}:set{setId}:p{problemId}:{lang}`
 - 메모: `memo:{userId}:set{setId}:p{problemId}`
 - 채팅: `chat:{userId}:set{setId}:mode{mode}`
@@ -86,12 +87,15 @@ LeetcodeClone/
 ### 데이터 파일 구조
 
 **`problems.json`** 항목 필드:
+
 - `id`, `description`, `examples`, `starter` (언어별 초기 코드), `functionName`, `pythonFunctionName`
 
 **`testcases.json`** 항목 필드:
+
 - `{problemId}: { visible: [...], hidden: [...] }` — 각 케이스: `{ input: [...], expected: any }`
 
 **`problem_sets.json`**:
+
 - `{ sets: [{ setId, name, problemIds: [...] }] }`
 
 ## UI 정책
