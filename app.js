@@ -1,4 +1,5 @@
-const JUDGE_API_BASE = localStorage.getItem("judgeApiBase") || "http://127.0.0.1:8000";
+const JUDGE_API_BASE =
+  localStorage.getItem("judgeApiBase") || "http://127.0.0.1:8000";
 
 let problems = [];
 let testcases = {};
@@ -8,16 +9,20 @@ let selectedProblem = null;
 let activeSet = null;
 let activeSetQueue = [];
 let activeSetIndex = 0;
-
-let chatSessionId = localStorage.getItem("chatSessionId") || crypto.randomUUID();
+let chatMessages = [];
 
 const params = new URLSearchParams(window.location.search);
 const runArgs = {
   setId: Number(params.get("set") || params.get("set_id") || 1),
   mode: (params.get("mode") || "memo").toLowerCase(),
   userId: params.get("user_id") || "anonymous",
-  language: (params.get("lang") || "javascript").toLowerCase()
+  language: (params.get("lang") || "javascript").toLowerCase(),
 };
+
+const chatSessionIdKey = `chatSessionId:${runArgs.userId}`;
+let chatSessionId =
+  localStorage.getItem(chatSessionIdKey) || crypto.randomUUID();
+localStorage.setItem(chatSessionIdKey, chatSessionId);
 
 const allowedModes = new Set(["memo", "assistant", "socratic"]);
 if (!allowedModes.has(runArgs.mode)) runArgs.mode = "memo";
@@ -48,7 +53,7 @@ const els = {
   downloadLogBtn: document.getElementById("downloadLogBtn"),
   chatHistory: document.getElementById("chatHistory"),
   chatInput: document.getElementById("chatInput"),
-  chatSendBtn: document.getElementById("chatSendBtn")
+  chatSendBtn: document.getElementById("chatSendBtn"),
 };
 
 function nowKstString() {
@@ -68,7 +73,7 @@ async function logEvent(action, detail = {}) {
     problemId: selectedProblem?.id || null,
     index: activeSetIndex,
     action,
-    detail
+    detail,
   };
 
   const logs = JSON.parse(localStorage.getItem(logKey()) || "[]");
@@ -79,23 +84,28 @@ async function logEvent(action, detail = {}) {
     await fetch(`${JUDGE_API_BASE}/client/log`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(row)
+      body: JSON.stringify(row),
     });
   } catch {}
 }
-
 
 function chatKey() {
   return `chat:${runArgs.userId}:set${runArgs.setId}:mode${runArgs.mode}`;
 }
 
 function saveChatHistory() {
-  localStorage.setItem(chatKey(), els.chatHistory.innerHTML);
+  localStorage.setItem(chatKey(), JSON.stringify(chatMessages));
 }
 
 function loadChatHistory() {
   const saved = localStorage.getItem(chatKey());
-  if (saved) els.chatHistory.innerHTML = saved;
+  if (!saved) return;
+  try {
+    const messages = JSON.parse(saved);
+    els.chatHistory.innerHTML = "";
+    chatMessages = [];
+    messages.forEach(({ role, text }) => appendChat(role, text, false));
+  } catch {}
 }
 
 function getMemoKey() {
@@ -116,7 +126,7 @@ function finalSaveMemo() {
     setId: runArgs.setId,
     problemId: selectedProblem.id,
     savedAt: nowKstString(),
-    content: els.memoInput.value
+    content: els.memoInput.value,
   };
   localStorage.setItem(`${getMemoKey()}:final`, JSON.stringify(payload));
   els.memoSavedAt.textContent = `최종저장 완료: ${payload.savedAt}`;
@@ -127,7 +137,9 @@ function loadMemo() {
   if (!selectedProblem) return;
   const memo = localStorage.getItem(getMemoKey()) || "";
   els.memoInput.value = memo;
-  els.memoSavedAt.textContent = memo ? `불러옴: ${nowKstString()}` : "아직 저장되지 않았습니다.";
+  els.memoSavedAt.textContent = memo
+    ? `불러옴: ${nowKstString()}`
+    : "아직 저장되지 않았습니다.";
 }
 
 function applyFixedMode() {
@@ -135,7 +147,12 @@ function applyFixedMode() {
   els.assistantMode.classList.toggle("active", runArgs.mode === "assistant");
   els.socraticMode.classList.toggle("active", runArgs.mode === "socratic");
 
-  const modeLabel = runArgs.mode === "memo" ? "SELF-EXPLAIN" : runArgs.mode === "assistant" ? "CHAT" : "SOCRATIC";
+  const modeLabel =
+    runArgs.mode === "memo"
+      ? "SELF-EXPLAIN"
+      : runArgs.mode === "assistant"
+        ? "CHAT"
+        : "SOCRATIC";
   els.currentModeBadge.textContent = `MODE: ${modeLabel}`;
   els.modeSectionTitle.textContent = `${modeLabel} MODE`;
 }
@@ -152,7 +169,7 @@ async function loadData() {
     const [problemsRes, testcasesRes, setsRes] = await Promise.all([
       fetch("./data/problems.json"),
       fetch("./data/testcases.json"),
-      fetch("./data/problem_sets.json")
+      fetch("./data/problem_sets.json"),
     ]);
 
     if (!problemsRes.ok || !testcasesRes.ok || !setsRes.ok) {
@@ -163,15 +180,21 @@ async function loadData() {
     testcases = await testcasesRes.json();
     problemSets = (await setsRes.json()).sets || [];
 
-    activeSet = problemSets.find((s) => Number(s.setId) === Number(runArgs.setId));
-    if (!activeSet) throw new Error(`set_id=${runArgs.setId} 문제세트를 찾을 수 없습니다.`);
+    activeSet = problemSets.find(
+      (s) => Number(s.setId) === Number(runArgs.setId),
+    );
+    if (!activeSet)
+      throw new Error(`set_id=${runArgs.setId} 문제세트를 찾을 수 없습니다.`);
 
     activeSetQueue = activeSet.problemIds || [];
-    if (!activeSetQueue.length) throw new Error(`set_id=${runArgs.setId} 문제세트가 비어 있습니다.`);
+    if (!activeSetQueue.length)
+      throw new Error(`set_id=${runArgs.setId} 문제세트가 비어 있습니다.`);
 
     activeSetIndex = 0;
-    selectedProblem = problems.find((p) => p.id === activeSetQueue[activeSetIndex]) || null;
-    if (!selectedProblem) throw new Error("문제세트의 problemId가 problems.json에 없습니다.");
+    selectedProblem =
+      problems.find((p) => p.id === activeSetQueue[activeSetIndex]) || null;
+    if (!selectedProblem)
+      throw new Error("문제세트의 problemId가 problems.json에 없습니다.");
 
     renderProblem();
     logEvent("session_start", { setName: activeSet.name });
@@ -195,10 +218,13 @@ function renderProblem() {
     els.examples.appendChild(box);
   });
 
-
   const key = `code:${runArgs.userId}:set${runArgs.setId}:p${selectedProblem.id}:${runArgs.language}`;
   const saved = localStorage.getItem(key);
-  els.editor.value = saved || selectedProblem.starter[runArgs.language] || selectedProblem.starter.javascript || "";
+  els.editor.value =
+    saved ||
+    selectedProblem.starter[runArgs.language] ||
+    selectedProblem.starter.javascript ||
+    "";
 
   loadMemo();
   updateProgressBadge();
@@ -218,7 +244,7 @@ function formatJudgeResponse(resp, mode) {
     `Language: ${runArgs.language}`,
     `Mode: ${mode.toUpperCase()}`,
     `Passed: ${resp.passed ?? 0}/${resp.total ?? 0}`,
-    `Runtime: ${resp.runtimeMs ?? 0} ms`
+    `Runtime: ${resp.runtimeMs ?? 0} ms`,
   ];
 
   if (resp.stderr) {
@@ -229,7 +255,9 @@ function formatJudgeResponse(resp, mode) {
   if (Array.isArray(resp.caseResults) && resp.caseResults.length) {
     lines.push("\n[Case Results]");
     resp.caseResults.forEach((c) => {
-      lines.push(`\n#${c.index} ${c.passed ? "✅" : "❌"}\ninput: ${JSON.stringify(c.input)}\nexpected: ${JSON.stringify(c.expected)}\nactual: ${JSON.stringify(c.actual)}${c.error ? `\nerror: ${c.error}` : ""}`);
+      lines.push(
+        `\n#${c.index} ${c.passed ? "✅" : "❌"}\ninput: ${JSON.stringify(c.input)}\nexpected: ${JSON.stringify(c.expected)}\nactual: ${JSON.stringify(c.actual)}${c.error ? `\nerror: ${c.error}` : ""}`,
+      );
     });
   }
   return lines.join("\n");
@@ -242,18 +270,23 @@ async function judge(mode) {
     problemId: selectedProblem.id,
     language: runArgs.language,
     code: els.editor.value,
-    mode
+    mode,
   };
 
   try {
     const res = await fetch(`${JUDGE_API_BASE}/judge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok) return `Judge API Error (${res.status})\n${JSON.stringify(data)}`;
-    await logEvent(mode, { status: data.status, passed: data.passed, total: data.total });
+    if (!res.ok)
+      return `Judge API Error (${res.status})\n${JSON.stringify(data)}`;
+    await logEvent(mode, {
+      status: data.status,
+      passed: data.passed,
+      total: data.total,
+    });
     return formatJudgeResponse(data, mode);
   } catch (e) {
     await logEvent(mode, { error: e.message });
@@ -270,13 +303,16 @@ async function nextProblem() {
   await logEvent("next_problem", { toIndex: activeSetIndex, toProblemId: pid });
 }
 
-function appendChat(role, text) {
+function appendChat(role, text, save = true) {
   const div = document.createElement("div");
   div.className = `chat-item ${role}`;
   div.textContent = `${role === "user" ? "나" : "GPT"}: ${text}`;
   els.chatHistory.appendChild(div);
   els.chatHistory.scrollTop = els.chatHistory.scrollHeight;
-  saveChatHistory();
+  if (save) {
+    chatMessages.push({ role, text });
+    saveChatHistory();
+  }
 }
 
 async function sendChat() {
@@ -295,8 +331,8 @@ async function sendChat() {
         question: q,
         problemId: selectedProblem?.id,
         language: runArgs.language,
-        userId: runArgs.userId
-      })
+        userId: runArgs.userId,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -315,7 +351,9 @@ async function sendChat() {
 
 async function downloadLog() {
   try {
-    const res = await fetch(`${JUDGE_API_BASE}/assistant/logs/${chatSessionId}`);
+    const res = await fetch(
+      `${JUDGE_API_BASE}/assistant/logs/${chatSessionId}`,
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
 
@@ -330,7 +368,6 @@ async function downloadLog() {
     alert(`로그 다운로드 실패: ${e.message}`);
   }
 }
-
 
 els.editor.addEventListener("input", saveCode);
 els.runBtn.addEventListener("click", async () => {
