@@ -46,9 +46,13 @@
           <h3>Self-Explain</h3>
           <textarea id="memoInput" class="memo-input"></textarea>
           <div class="row">
-            <span id="memoSavedAt" class="muted">아직 저장되지 않았습니다.</span>
+            <span id="memoSavedAt" class="muted"
+              >아직 저장되지 않았습니다.</span
+            >
             <div>
-              <button id="memoFinalSaveBtn" class="btn primary">최종저장</button>
+              <button id="memoFinalSaveBtn" class="btn primary">
+                최종저장
+              </button>
             </div>
           </div>
         </div>
@@ -58,13 +62,17 @@
           <div class="row">
             <label class="muted">Session:</label>
             <input id="chatSessionId" class="text-input" readonly />
-            <button id="downloadLogBtn" class="btn secondary">로그 다운로드</button>
+            <button id="downloadLogBtn" class="btn secondary">
+              로그 다운로드
+            </button>
           </div>
           <div id="chatHistory" class="chat-history"></div>
           <h4>Question</h4>
           <textarea id="chatInput" class="memo-input"></textarea>
           <div class="row">
-            <span class="muted">모델 응답은 judge-server를 통해 호출됩니다.</span>
+            <span class="muted"
+              >모델 응답은 judge-server를 통해 호출됩니다.</span
+            >
             <button id="chatSendBtn" class="btn primary">질문 보내기</button>
           </div>
         </div>

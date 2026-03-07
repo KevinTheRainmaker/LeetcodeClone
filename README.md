@@ -1,6 +1,7 @@
 # LeetCode Clone + FastAPI Judge Server
 
 현재 버전은 **실행 인자 기반 고정 실행 모델**입니다.
+
 - UI에서 문제세트/모드를 선택하지 않습니다.
 - 실행 시 URL args로 `set`, `mode`, `user_id`를 전달합니다.
 - UI 조작은 **Run / Submit / 다음 문제**만 가능합니다.
@@ -11,12 +12,15 @@
 ## 실행 화면 (최신)
 
 ### 메모장 모드
+
 ![메모장 모드](docs/screenshot-memo-mode.png)
 
 ### 답변제공 모드
+
 ![답변제공 모드](docs/screenshot-assistant-mode.png)
 
 ### 소크라틱 모드 (빈 공간)
+
 ![소크라틱 모드](docs/screenshot-socratic-mode.png)
 
 ---
@@ -30,6 +34,7 @@
 - 소크라틱 모드: `http://localhost:8080/?set=1&mode=socratic&user_id=kevin`
 
 인자 설명:
+
 - `set` 또는 `set_id`: 문제세트 번호 (`data/problem_sets.json`)
 - `mode`: `memo | assistant | socratic`
 - `user_id`: 사용자 식별자 (로그 분리 저장)
@@ -73,10 +78,12 @@
 ## 실행 로그 저장
 
 ### 프론트(localStorage)
+
 - 키: `runlog:<user_id>:set<setId>`
 - 이벤트: session_start, run, submit, next_problem, assistant_chat 등
 
 ### 서버(JSONL)
+
 - 경로: `judge-server/client_logs/<user_id>_set<setId>.jsonl`
 - API: `POST /client/log`
 
@@ -85,12 +92,14 @@
 ## 실행 방법
 
 ### 1) 프론트 실행
+
 ```bash
 cd /Users/hcis/Desktop/leetcode-clone
 python3 -m http.server 8080
 ```
 
 ### 2) FastAPI 서버 실행
+
 ```bash
 cd /Users/hcis/Desktop/leetcode-clone/judge-server
 python3 -m venv .venv
@@ -105,6 +114,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ## 주요 API
 
 ### `POST /judge`
+
 ```json
 {
   "problemId": 1,
@@ -115,6 +125,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### `POST /assistant/chat`
+
 ```json
 {
   "sessionId": "uuid-string",
@@ -126,6 +137,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### `POST /client/log`
+
 클라이언트 실행 이벤트를 서버 JSONL로 저장
 
 ---
@@ -173,8 +185,8 @@ git push
 ## 보안 주의
 
 현재는 로컬 개발용입니다. 외부 공개 시 필수:
+
 - 코드 실행 샌드박스 강화(Docker/seccomp)
 - CPU/메모리/프로세스 제한
 - 네트워크/파일 접근 제어
 - 인증/권한 관리
-

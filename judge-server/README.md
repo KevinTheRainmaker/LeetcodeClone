@@ -13,11 +13,14 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 헬스체크:
+
 - `GET http://localhost:8000/health`
 
 채점 API:
+
 - `POST http://localhost:8000/judge`
 - body 예시:
+
 ```json
 {
   "problemId": 1,
