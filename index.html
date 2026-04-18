@@ -16,12 +16,10 @@
     <div class="app" id="app">
       <!-- Topbar -->
       <header class="topbar">
-        <div class="top-left">
-          <span class="brand-dot"></span>
-          <span>CODING PLATFORM</span>
-        </div>
+        <div class="top-left"></div>
         <div class="top-center">
           <span id="qCounter">Question 0 of 0</span>
+          <span class="dropdown"></span>
         </div>
         <div class="top-right">
           <span class="user-chip" id="userChip" style="display: none">
@@ -36,6 +34,7 @@
             Export
           </button>
           <span class="timer" id="timer">00:00:00</span>
+          <span class="help-circle" title="Help">?</span>
         </div>
       </header>
 
@@ -82,10 +81,7 @@
         <section class="panel-left">
           <div class="panel-header">
             <span>Description</span>
-            <span
-              id="modeLabel"
-              style="font-size: 10px; color: var(--muted)"
-            ></span>
+            <span class="collapse" title="Collapse">«</span>
           </div>
           <div class="problem-scroll">
             <h1 class="p-title" id="pTitle">Loading…</h1>
@@ -106,18 +102,17 @@
             <div class="p-section-title">Examples</div>
             <div id="pExamples"></div>
 
-            <!-- Memo mode slot (shown when mode=memo) -->
-            <div id="memoBox" class="memo-box" style="display: none">
-              <div class="p-section-title" style="margin-top: 0">
-                Self-Explain
+            <div class="p-section-title">Constraints</div>
+            <div class="example" id="pConstraints">
+              <div class="ex-row">
+                <span class="ex-k">• runtime</span
+                ><span class="ex-v">≤ 2000 ms</span>
               </div>
-              <textarea
-                id="memoInput"
-                placeholder="풀이 방법, 시간복잡도, 엣지케이스를 자신의 말로 정리해보세요."
-              ></textarea>
-              <div class="row">
-                <span id="memoSavedAt">아직 저장되지 않았습니다.</span>
-                <button id="memoFinalBtn" class="memo-save">최종 저장</button>
+              <div class="ex-row">
+                <span class="ex-k">• mode</span
+                ><span class="ex-v"
+                  >RUN for visible cases · Submit for full judge</span
+                >
               </div>
             </div>
           </div>
@@ -130,16 +125,19 @@
             <div class="editor-tabs">
               <div class="editor-tab">
                 <span class="dot"></span>
-                <span id="fileName">solution.js</span>
+                <span id="fileName">solution.py</span>
               </div>
               <div class="editor-tabs-right">
-                <span class="lang-chip" id="langChip"
-                  >JavaScript · Node 20</span
-                >
+                <span class="lang-chip" id="langChip">Python 3</span>
                 <span class="icon-btn" id="resetBtn" title="Reset to starter">
                   <svg viewBox="0 0 24 24">
                     <path d="M3 12a9 9 0 1 0 3-6.7" />
                     <path d="M3 4v5h5" />
+                  </svg>
+                </span>
+                <span class="icon-btn" id="formatBtn" title="Format">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 6h16M4 12h10M4 18h16" />
                   </svg>
                 </span>
               </div>
@@ -161,6 +159,9 @@
                   autocapitalize="off"
                 ></textarea>
               </div>
+              <div class="minimap" id="minimap">
+                <div class="viewport"></div>
+              </div>
             </div>
           </div>
 
@@ -168,15 +169,15 @@
 
           <div class="terminal">
             <div class="term-tabs">
-              <div class="term-tab active" data-term="terminal">TERMINAL</div>
               <div class="term-tab" data-term="output">OUTPUT</div>
+              <div class="term-tab active" data-term="terminal">TERMINAL</div>
               <div class="term-right">
                 <span class="term-hint">
                   <svg viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="9" />
                     <path d="M12 7v5l3 2" />
                   </svg>
-                  Real-time
+                  Free-format output
                 </span>
                 <button class="btn-run" id="runBtn">
                   <svg viewBox="0 0 24 24">
@@ -196,12 +197,14 @@
 
           <div class="actions-row">
             <div class="actions-left">
-              <span
-                id="gateNote"
-                style="font-size: 11px; letter-spacing: 0.02em"
-              ></span>
+              <button class="btn ghost" id="moreBtn" title="More actions">
+                ⋮ More
+              </button>
             </div>
             <div class="actions-right">
+              <button class="btn" id="diffBtn" title="View diff vs starter">
+                View Diff
+              </button>
               <button class="btn primary" id="submitBtn">Submit</button>
               <button class="btn accent" id="nextBtn" disabled>Next ›</button>
             </div>
@@ -233,37 +236,44 @@
       </div>
     </div>
 
-    <!-- Settings panel -->
-    <div class="settings-panel" id="settingsPanel">
-      <h4>Settings</h4>
-      <div class="st-row">
+    <!-- Tweaks panel -->
+    <div class="tweaks" id="tweaks">
+      <h4>Tweaks</h4>
+      <div class="tw-row">
         <span>Accent</span>
-        <div class="st-swatches" id="stAccent">
+        <div class="tw-swatches" id="twAccent">
           <div
-            class="st-sw active"
+            class="tw-sw active"
             data-accent="cyan"
             style="background: oklch(0.78 0.12 215)"
           ></div>
           <div
-            class="st-sw"
+            class="tw-sw"
             data-accent="violet"
             style="background: oklch(0.74 0.15 285)"
           ></div>
           <div
-            class="st-sw"
+            class="tw-sw"
             data-accent="green"
             style="background: oklch(0.78 0.15 150)"
           ></div>
           <div
-            class="st-sw"
+            class="tw-sw"
             data-accent="amber"
             style="background: oklch(0.82 0.14 75)"
           ></div>
         </div>
       </div>
-      <div class="st-row">
+      <div class="tw-row">
+        <span>Density</span>
+        <div class="tw-seg" id="twDensity">
+          <button data-density="comfortable" class="active">Comfy</button>
+          <button data-density="compact">Compact</button>
+        </div>
+      </div>
+      <div class="tw-row">
         <span>Language</span>
-        <div class="st-seg" id="stLang">
+        <div class="tw-seg" id="twLang">
           <button data-lang="javascript">JS</button>
           <button data-lang="python">Python</button>
           <button data-lang="cpp">C++</button>

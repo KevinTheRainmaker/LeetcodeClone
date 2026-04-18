@@ -83,24 +83,22 @@ body {
   font-weight: 600;
   letter-spacing: 0.04em;
 }
-.brand-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 30% 30%,
-    #fff,
-    var(--accent) 45%,
-    var(--violet)
-  );
-  box-shadow: 0 0 8px color-mix(in oklch, var(--accent) 50%, transparent);
-}
 .top-center {
   display: flex;
   align-items: center;
   gap: 6px;
   color: var(--text);
   font-weight: 500;
+}
+.top-center .dropdown {
+  width: 8px;
+  height: 8px;
+  border-left: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  margin-left: 4px;
+  margin-top: -2px;
+  color: var(--muted);
 }
 .top-right {
   display: flex;
@@ -154,6 +152,22 @@ body {
   letter-spacing: 0.04em;
 }
 .export-btn:hover {
+  color: var(--text);
+  border-color: var(--text-2);
+}
+.help-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.help-circle:hover {
   color: var(--text);
   border-color: var(--text-2);
 }
@@ -378,6 +392,15 @@ body {
   font-weight: 600;
   flex-shrink: 0;
 }
+.panel-header .collapse {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+.panel-header .collapse:hover {
+  color: var(--text);
+}
 
 .problem-scroll {
   overflow-y: auto;
@@ -499,54 +522,6 @@ body {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-/* Memo panel (for mode=memo) */
-.memo-box {
-  margin-top: 18px;
-  padding: 12px 14px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-}
-.memo-box textarea {
-  width: 100%;
-  min-height: 140px;
-  background: var(--s-bg);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 13px;
-  resize: vertical;
-  outline: none;
-}
-.memo-box textarea:focus {
-  border-color: var(--accent);
-}
-.memo-box .row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.memo-save {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-weight: 700;
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  letter-spacing: 0.04em;
-}
-.memo-save:hover {
-  filter: brightness(1.08);
 }
 
 /* ── Right panel: editor + terminal ── */
@@ -709,6 +684,52 @@ body {
 }
 .code-input::selection {
   background: color-mix(in oklch, var(--accent) 30%, transparent);
+}
+
+/* minimap (decorative) */
+.minimap {
+  position: absolute;
+  top: 10px;
+  right: 0;
+  width: 76px;
+  bottom: 10px;
+  opacity: 0.35;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+.mini-line {
+  height: 3px;
+  margin: 1px 6px;
+  border-radius: 1px;
+  background: var(--line-2);
+}
+.mini-line.kw {
+  background: var(--s-kw);
+}
+.mini-line.fn {
+  background: var(--s-fn);
+}
+.mini-line.str {
+  background: var(--s-str);
+}
+.mini-line.com {
+  background: var(--s-com);
+}
+.minimap .viewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 20%;
+  height: 32%;
+  background: color-mix(in oklch, var(--text) 8%, transparent);
+  border: 1px solid color-mix(in oklch, var(--text) 12%, transparent);
 }
 
 .kw {
@@ -1217,24 +1238,24 @@ body {
   fill: currentColor;
 }
 
-/* ─────────── Settings panel ─────────── */
-.settings-panel {
+/* ─────────── Tweaks panel ─────────── */
+.tweaks {
   position: fixed;
   left: 66px;
   bottom: 16px;
-  width: 240px;
+  width: 260px;
   background: var(--panel);
   border: 1px solid var(--line-2);
   border-radius: var(--r-lg);
-  padding: 14px 14px 12px;
+  padding: 12px 14px;
   z-index: 50;
   display: none;
   box-shadow: 0 20px 48px -16px rgba(0, 0, 0, 0.8);
 }
-.settings-panel.open {
+.tweaks.open {
   display: block;
 }
-.settings-panel h4 {
+.tweaks h4 {
   margin: 0 0 10px;
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -1242,37 +1263,37 @@ body {
   font-weight: 700;
   text-transform: uppercase;
 }
-.st-row {
+.tw-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-size: 12.5px;
   color: var(--text-2);
 }
-.st-swatches {
+.tw-swatches {
   display: flex;
   gap: 6px;
 }
-.st-sw {
+.tw-sw {
   width: 18px;
   height: 18px;
   border-radius: 50%;
   border: 1px solid var(--line-2);
   cursor: pointer;
 }
-.st-sw.active {
+.tw-sw.active {
   outline: 2px solid var(--text);
   outline-offset: 1px;
 }
-.st-seg {
+.tw-seg {
   display: flex;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 6px;
   overflow: hidden;
 }
-.st-seg button {
+.tw-seg button {
   padding: 4px 8px;
   background: transparent;
   border: none;
@@ -1281,7 +1302,23 @@ body {
   cursor: pointer;
   font-family: inherit;
 }
-.st-seg button.active {
+.tw-seg button.active {
   background: var(--panel-3);
   color: var(--text);
+}
+
+/* Density */
+.app.compact .problem-scroll {
+  padding: 14px 22px 50px;
+}
+.app.compact .p-title {
+  font-size: 17px;
+}
+.app.compact .code-highlight,
+.app.compact .code-input {
+  font-size: 12px;
+}
+.app.compact .p-setup {
+  font-size: 12.5px;
+  padding: 8px 10px;
 }

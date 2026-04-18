@@ -20,15 +20,11 @@ const CHAT_URL = "/api/chat";
 const PARAMS = new URLSearchParams(window.location.search);
 const runArgs = {
   setId: PARAMS.get("set") || PARAMS.get("set_id") || null,
-  mode: (PARAMS.get("mode") || "memo").toLowerCase(),
   userIdParam: PARAMS.get("user_id") || null,
-  language: (PARAMS.get("lang") || "javascript").toLowerCase(),
+  language: (PARAMS.get("lang") || "python").toLowerCase(),
 };
-if (!["memo", "assistant", "socratic"].includes(runArgs.mode)) {
-  runArgs.mode = "memo";
-}
 if (!["javascript", "python", "cpp"].includes(runArgs.language)) {
-  runArgs.language = "javascript";
+  runArgs.language = "python";
 }
 
 const SESSION_USER_KEY = "cp_user_id";
@@ -51,6 +47,7 @@ const state = {
   code: "",
   runResult: null,
   accent: "cyan",
+  density: "comfortable",
 };
 
 const els = {};
@@ -73,7 +70,6 @@ function cacheEls() {
     "runBtn",
     "submitBtn",
     "nextBtn",
-    "gateNote",
     "timer",
     "railProbs",
     "railAi",
@@ -84,16 +80,15 @@ function cacheEls() {
     "aiInput",
     "aiSend",
     "aiModel",
-    "settingsPanel",
+    "tweaks",
     "userChip",
     "userChipName",
     "exportBtn",
-    "modeLabel",
-    "memoBox",
-    "memoInput",
-    "memoSavedAt",
-    "memoFinalBtn",
     "resetBtn",
+    "formatBtn",
+    "moreBtn",
+    "diffBtn",
+    "minimap",
     "app",
   ];
   ids.forEach((id) => (els[id] = document.getElementById(id)));
@@ -108,7 +103,6 @@ function logEvent(action, detail = {}) {
     userId: session.userId,
     sessionId: session.sessionId,
     setId: runArgs.setId,
-    mode: runArgs.mode,
     language: state.lang,
     problemId: p?.id ?? null,
     problemIdx: state.idx,
@@ -161,7 +155,6 @@ window.addEventListener("beforeunload", () => {
     userId: session.userId,
     sessionId: session.sessionId,
     setId: runArgs.setId,
-    mode: runArgs.mode,
     action: "session_end",
     detail: { problemIdx: state.idx, solvedCount: state.solved.size },
   };
@@ -293,14 +286,6 @@ function updateNextGate() {
     : state.idx >= state.queue.length - 1
       ? "마지막 문제입니다"
       : "Submit으로 모든 테스트를 통과해야 다음 문제로 이동할 수 있습니다";
-  els.gateNote.textContent = state.solved.has(state.idx)
-    ? state.idx >= state.queue.length - 1
-      ? "✓ 모든 문제를 완료했습니다"
-      : "✓ 해결 완료 — Next로 이동"
-    : "Submit으로 모든 케이스 통과 시 Next 활성화";
-  els.gateNote.style.color = state.solved.has(state.idx)
-    ? "var(--green)"
-    : "var(--muted)";
 }
 
 function render() {
@@ -353,15 +338,6 @@ function render() {
     "// starter missing";
   els.codeInput.value = state.code;
   paintEditor();
-
-  // Memo mode
-  if (runArgs.mode === "memo") {
-    els.memoBox.style.display = "block";
-    loadMemo();
-  } else {
-    els.memoBox.style.display = "none";
-  }
-  els.modeLabel.textContent = `· MODE: ${runArgs.mode.toUpperCase()}`;
 }
 
 // ────────────── Syntax highlight (overlay) ──────────────
@@ -557,6 +533,29 @@ function paintEditor() {
   els.codeHighlight.innerHTML = lines
     .map((ln) => highlightLine(ln, state.lang) || "&nbsp;")
     .join("\n");
+  // minimap: per-line class by dominant token
+  if (els.minimap) {
+    const commentMarker = state.lang === "python" ? "#" : "//";
+    const miniHtml = lines
+      .map((ln) => {
+        const trimmed = ln.trim();
+        if (!trimmed) return `<div class="mini-line"></div>`;
+        let cls = "";
+        if (trimmed.startsWith(commentMarker)) cls = "com";
+        else if (/["']/.test(trimmed)) cls = "str";
+        else if (
+          /\b(def|function|return|class|if|else|for|while|import|const|let|var|public|private)\b/.test(
+            trimmed,
+          )
+        )
+          cls = "kw";
+        else if (/\w+\s*\(/.test(trimmed)) cls = "fn";
+        return `<div class="mini-line ${cls}"></div>`;
+      })
+      .join("");
+    const viewport = `<div class="viewport"></div>`;
+    els.minimap.innerHTML = miniHtml + viewport;
+  }
   // sync scroll
   els.codeHighlight.scrollTop = els.codeInput.scrollTop;
   els.codeHighlight.scrollLeft = els.codeInput.scrollLeft;
@@ -713,9 +712,7 @@ function addMsg(role, html) {
 function buildSystemPrompt() {
   const p = currentProblem();
   const baseTone =
-    runArgs.mode === "socratic"
-      ? "You are a Socratic coding tutor. Never give a full solution. Instead ask guiding questions and provide minimal hints."
-      : "You are a concise coding tutor. Prefer hints over full solutions. Provide full code only if the student explicitly asks.";
+    "You are a concise coding tutor. Prefer hints over full solutions. Provide full code only if the student explicitly asks.";
   if (!p) return baseTone;
   return [
     baseTone,
@@ -777,41 +774,7 @@ async function sendAI() {
   }
 }
 
-// ────────────── Memo (mode=memo) ──────────────
-function memoKey() {
-  const p = currentProblem();
-  if (!p || !session.userId) return null;
-  return `memo:${session.userId}:p${p.id}`;
-}
-function loadMemo() {
-  const k = memoKey();
-  if (!k) return;
-  els.memoInput.value = localStorage.getItem(k) || "";
-  els.memoSavedAt.textContent = els.memoInput.value
-    ? "불러옴"
-    : "아직 저장되지 않았습니다.";
-}
-function autosaveMemo() {
-  const k = memoKey();
-  if (!k) return;
-  localStorage.setItem(k, els.memoInput.value);
-  els.memoSavedAt.textContent = `자동저장: ${new Date().toLocaleTimeString("ko-KR")}`;
-}
-function finalSaveMemo() {
-  const k = memoKey();
-  if (!k) return;
-  const payload = {
-    userId: session.userId,
-    problemId: currentProblem()?.id,
-    savedAt: new Date().toISOString(),
-    content: els.memoInput.value,
-  };
-  localStorage.setItem(`${k}:final`, JSON.stringify(payload));
-  els.memoSavedAt.textContent = `최종 저장: ${new Date().toLocaleTimeString("ko-KR")}`;
-  logEvent("memo_final_save", { length: els.memoInput.value.length });
-}
-
-// ────────────── Settings ──────────────
+// ────────────── Tweaks ──────────────
 const ACCENTS = {
   cyan: "oklch(0.78 0.12 215)",
   violet: "oklch(0.74 0.15 285)",
@@ -821,18 +784,26 @@ const ACCENTS = {
 function applyAccent(name) {
   state.accent = name;
   document.documentElement.style.setProperty("--accent", ACCENTS[name]);
-  document.querySelectorAll("#stAccent .st-sw").forEach((s) => {
+  document.querySelectorAll("#twAccent .tw-sw").forEach((s) => {
     s.classList.toggle("active", s.dataset.accent === name);
   });
   localStorage.setItem("cp_accent", name);
 }
 function applyLang(name) {
   state.lang = name;
-  document.querySelectorAll("#stLang button").forEach((b) => {
+  document.querySelectorAll("#twLang button").forEach((b) => {
     b.classList.toggle("active", b.dataset.lang === name);
   });
   localStorage.setItem("cp_lang", name);
   if (state.queue.length) render();
+}
+function applyDensity(name) {
+  state.density = name;
+  els.app?.classList.toggle("compact", name === "compact");
+  document.querySelectorAll("#twDensity button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.density === name);
+  });
+  localStorage.setItem("cp_density", name);
 }
 
 // ────────────── Wire up ──────────────
@@ -888,7 +859,7 @@ function wireUp() {
   els.railAi.addEventListener("click", () => {
     if (els.aiPanel.classList.contains("open")) closeAI();
     else {
-      els.settingsPanel.classList.remove("open");
+      els.tweaks.classList.remove("open");
       openAI();
     }
   });
@@ -898,10 +869,10 @@ function wireUp() {
     if (e.key === "Enter") sendAI();
   });
 
-  // Rail: settings
+  // Rail: tweaks
   els.railSettings.addEventListener("click", () => {
     els.aiPanel.classList.remove("open");
-    els.settingsPanel.classList.toggle("open");
+    els.tweaks.classList.toggle("open");
   });
 
   document.querySelectorAll(".term-tab").forEach((t) => {
@@ -913,20 +884,63 @@ function wireUp() {
     });
   });
 
-  // Settings wiring
-  document.querySelectorAll("#stAccent .st-sw").forEach((s) => {
+  // Tweaks wiring
+  document.querySelectorAll("#twAccent .tw-sw").forEach((s) => {
     s.addEventListener("click", () => applyAccent(s.dataset.accent));
   });
-  document.querySelectorAll("#stLang button").forEach((b) => {
+  document.querySelectorAll("#twLang button").forEach((b) => {
     b.addEventListener("click", () => {
       applyLang(b.dataset.lang);
       logEvent("change_language", { to: b.dataset.lang });
     });
   });
+  document.querySelectorAll("#twDensity button").forEach((b) => {
+    b.addEventListener("click", () => applyDensity(b.dataset.density));
+  });
 
-  // Memo wiring
-  els.memoInput.addEventListener("input", autosaveMemo);
-  els.memoFinalBtn.addEventListener("click", finalSaveMemo);
+  // Format button: shallow indent normalization (spaces; no external formatter)
+  els.formatBtn?.addEventListener("click", () => {
+    const normalized = els.codeInput.value
+      .replace(/\t/g, "    ")
+      .replace(/[ \t]+$/gm, "");
+    if (normalized !== els.codeInput.value) {
+      els.codeInput.value = normalized;
+      paintEditor();
+      saveCode();
+      logEvent("format_code");
+    }
+  });
+
+  // More: opens tweaks panel as a shortcut
+  els.moreBtn?.addEventListener("click", () => {
+    els.aiPanel.classList.remove("open");
+    els.tweaks.classList.toggle("open");
+  });
+
+  // Diff: show current code vs starter in the terminal
+  els.diffBtn?.addEventListener("click", () => {
+    const p = currentProblem();
+    if (!p) return;
+    const starter = p.starter?.[state.lang] ?? "";
+    const cur = state.code || "";
+    if (starter === cur) {
+      termPush(`<span class="term-muted">(no changes vs starter)</span>`);
+      return;
+    }
+    const sLines = starter.split("\n");
+    const cLines = cur.split("\n");
+    const n = Math.max(sLines.length, cLines.length);
+    termPush(`<span class="term-muted">diff: current vs starter</span>`);
+    for (let i = 0; i < n; i++) {
+      if (sLines[i] === cLines[i]) continue;
+      if (sLines[i] !== undefined) {
+        termPush(`<span class="term-err">- ${escapeHtml(sLines[i])}</span>`);
+      }
+      if (cLines[i] !== undefined) {
+        termPush(`<span class="term-ok">+ ${escapeHtml(cLines[i])}</span>`);
+      }
+    }
+  });
 
   // Export
   els.exportBtn.addEventListener("click", () => {
@@ -945,14 +959,15 @@ function wireUp() {
     URL.revokeObjectURL(url);
   });
 
-  // Click outside settings to close
+  // Click outside tweaks to close
   document.addEventListener("click", (e) => {
     if (
-      els.settingsPanel.classList.contains("open") &&
-      !els.settingsPanel.contains(e.target) &&
-      !els.railSettings.contains(e.target)
+      els.tweaks.classList.contains("open") &&
+      !els.tweaks.contains(e.target) &&
+      !els.railSettings.contains(e.target) &&
+      !els.moreBtn.contains(e.target)
     ) {
-      els.settingsPanel.classList.remove("open");
+      els.tweaks.classList.remove("open");
     }
   });
 }
@@ -1020,15 +1035,16 @@ function boot() {
   cacheEls();
   wireUp();
 
-  // Restore saved accent/lang
+  // Restore saved accent/lang/density
   const savedAccent = localStorage.getItem("cp_accent");
   if (savedAccent && ACCENTS[savedAccent]) applyAccent(savedAccent);
   const savedLang = localStorage.getItem("cp_lang");
   if (savedLang && ["javascript", "python", "cpp"].includes(savedLang)) {
     state.lang = savedLang;
   }
-  // default highlight seg active
-  document.querySelectorAll("#stLang button").forEach((b) => {
+  const savedDensity = localStorage.getItem("cp_density");
+  applyDensity(savedDensity === "compact" ? "compact" : "comfortable");
+  document.querySelectorAll("#twLang button").forEach((b) => {
     b.classList.toggle("active", b.dataset.lang === state.lang);
   });
 
