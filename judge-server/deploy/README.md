@@ -47,20 +47,50 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ## 4. launchd로 judge-server 자동 실행
 
-1. `judge-server.plist`를 `~/Library/LaunchAgents/com.lab.judge-server.plist`로 복사.
-2. 파일 내 `<USERNAME>`, `<JUDGE_SHARED_TOKEN_VALUE>`를 치환.
-3. 로드:
+> 템플릿 파일 위치: `~/LeetcodeClone/judge-server/deploy/judge-server.plist`
+> (2번에서 `git clone` 했으므로 이 경로에 이미 존재합니다.)
 
-   ```bash
-   launchctl load ~/Library/LaunchAgents/com.lab.judge-server.plist
-   curl http://127.0.0.1:8000/health        # {"status":"ok"}
-   curl -X POST http://127.0.0.1:8000/judge \
-        -H "Authorization: Bearer <토큰>" \
-        -H "Content-Type: application/json" \
-        -d '{"problemId":1,"language":"javascript","code":"function solve(){}","mode":"run"}'
-   ```
+### 4-1. 템플릿 복사
 
-   401이 나오면 토큰이 틀린 것, 403/404는 라우팅 문제, 200이면 정상.
+```bash
+mkdir -p ~/Library/LaunchAgents
+cp ~/LeetcodeClone/judge-server/deploy/judge-server.plist \
+   ~/Library/LaunchAgents/com.lab.judge-server.plist
+```
+
+### 4-2. 자리표시자 치환
+
+복사한 파일을 편집기로 열어 두 곳을 바꿉니다.
+
+```bash
+nano ~/Library/LaunchAgents/com.lab.judge-server.plist
+```
+
+- `<USERNAME>` (3군데) → Mac mini 사용자 이름. `whoami`로 확인.
+- `<JUDGE_SHARED_TOKEN_VALUE>` (1군데) → 3번에서 생성한 토큰 문자열.
+
+sed로 한 번에 치환하고 싶다면:
+
+```bash
+USER_NAME=$(whoami)
+TOKEN="<3번에서_생성한_토큰>"
+sed -i '' "s|<USERNAME>|$USER_NAME|g; s|<JUDGE_SHARED_TOKEN_VALUE>|$TOKEN|g" \
+    ~/Library/LaunchAgents/com.lab.judge-server.plist
+```
+
+### 4-3. 로드 및 확인
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.lab.judge-server.plist
+
+curl http://127.0.0.1:8000/health        # {"status":"ok"}
+curl -X POST http://127.0.0.1:8000/judge \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"problemId":1,"language":"javascript","code":"function solve(){}","mode":"run"}'
+```
+
+401이 나오면 토큰이 틀린 것, 403/404는 라우팅 문제, 200이면 정상.
 
 재시작이 필요하면:
 
@@ -88,7 +118,16 @@ cloudflared tunnel create judge-server
 
 ### 5-C. config.yml 작성
 
-`deploy/config.yml.example`를 참고해 `~/.cloudflared/config.yml` 작성 후:
+> 템플릿 위치: `~/LeetcodeClone/judge-server/deploy/config.yml.example`
+
+```bash
+mkdir -p ~/.cloudflared
+cp ~/LeetcodeClone/judge-server/deploy/config.yml.example ~/.cloudflared/config.yml
+nano ~/.cloudflared/config.yml
+# ↳ <UUID>, <USERNAME>, <HOSTNAME> 3곳 치환 (5-B에서 나온 Tunnel ID + 사용하려는 도메인)
+```
+
+이어서:
 
 ```bash
 cloudflared tunnel route dns judge-server judge.example.com
@@ -109,13 +148,23 @@ curl -X POST https://judge.example.com/judge \
 
 ### 5-D. launchd로 터널 상시 실행
 
-1. `cloudflared.plist`를 `~/Library/LaunchAgents/com.lab.cloudflared.plist`로 복사.
-2. `<USERNAME>` 치환. `which cloudflared`로 실제 경로 확인 후 ProgramArguments 첫 문자열 수정(Intel Mac이면 `/usr/local/bin/cloudflared`).
-3. 로드:
+> 템플릿 위치: `~/LeetcodeClone/judge-server/deploy/cloudflared.plist`
 
-   ```bash
-   launchctl load ~/Library/LaunchAgents/com.lab.cloudflared.plist
-   ```
+```bash
+cp ~/LeetcodeClone/judge-server/deploy/cloudflared.plist \
+   ~/Library/LaunchAgents/com.lab.cloudflared.plist
+
+# <USERNAME> 치환
+sed -i '' "s|<USERNAME>|$(whoami)|g" \
+    ~/Library/LaunchAgents/com.lab.cloudflared.plist
+
+# cloudflared 실제 경로 확인 (Apple Silicon은 /opt/homebrew/bin, Intel은 /usr/local/bin)
+which cloudflared
+# 위 결과가 /opt/homebrew/bin/cloudflared와 다르면 plist의 ProgramArguments 첫 줄을 맞춰 수정:
+#   nano ~/Library/LaunchAgents/com.lab.cloudflared.plist
+
+launchctl load ~/Library/LaunchAgents/com.lab.cloudflared.plist
+```
 
 ### 5-E. (옵션) 도메인 없이 Quick Tunnel 임시 테스트
 
