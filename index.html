@@ -3,85 +3,273 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LeetCode Clone</title>
+    <title>Coding Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="logo">🧩 LeetCode Clone</div>
-      <div class="controls">
-        <span id="progressBadge" class="badge medium">0 / 0</span>
-        <span id="currentModeBadge" class="badge easy">MODE: -</span>
-        <button id="runBtn" class="btn secondary">Run</button>
-        <button id="submitBtn" class="btn primary">Submit</button>
-        <button id="nextProblemBtn" class="btn primary">다음 문제</button>
-      </div>
-    </header>
-
-    <main class="layout simple">
-      <section class="panel middle full">
-        <div class="problem-header">
-          <h2 id="problemTitle"></h2>
+    <div class="app" id="app">
+      <!-- Topbar -->
+      <header class="topbar">
+        <div class="top-left">
+          <span class="brand-dot"></span>
+          <span>CODING PLATFORM</span>
         </div>
-        <p id="problemDesc" class="problem-desc"></p>
-
-        <h3>Examples</h3>
-        <div id="examples"></div>
-      </section>
-
-      <section class="panel right">
-        <h3>Code</h3>
-        <textarea id="editor" spellcheck="false"></textarea>
-        <div class="result-wrap">
-          <h3>Result</h3>
-          <pre id="result">아직 실행 결과가 없습니다.</pre>
+        <div class="top-center">
+          <span id="qCounter">Question 0 of 0</span>
         </div>
-      </section>
-    </main>
+        <div class="top-right">
+          <span class="user-chip" id="userChip" style="display: none">
+            <span class="avatar"></span><span id="userChipName">-</span>
+          </span>
+          <button
+            class="export-btn"
+            id="exportBtn"
+            title="내 로그 다운로드"
+            style="display: none"
+          >
+            Export
+          </button>
+          <span class="timer" id="timer">00:00:00</span>
+        </div>
+      </header>
 
-    <section class="extra-layout">
-      <section class="panel">
-        <h3 id="modeSectionTitle">Mode</h3>
-        <div id="memoMode" class="mode-panel">
-          <h3>Self-Explain</h3>
-          <textarea id="memoInput" class="memo-input"></textarea>
-          <div class="row">
-            <span id="memoSavedAt" class="muted"
-              >아직 저장되지 않았습니다.</span
-            >
-            <div>
-              <button id="memoFinalSaveBtn" class="btn primary">
-                최종저장
-              </button>
+      <!-- Left rail -->
+      <nav class="rail">
+        <div
+          class="rail-btn rail-static"
+          aria-disabled="true"
+          title="Description"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M6 3h9l3 3v15H6z" />
+            <path d="M15 3v4h3" />
+            <path d="M9 12h6M9 16h6" />
+          </svg>
+          <span class="lbl">DESC</span>
+        </div>
+        <div class="rail-btn rail-ai" id="railAi" title="AI Assistant">
+          <span class="rail-orb"></span>
+          <span class="lbl">AI</span>
+        </div>
+
+        <div class="rail-probs-label">PROBS</div>
+        <div class="rail-probs" id="railProbs"></div>
+
+        <div
+          class="rail-btn"
+          id="railSettings"
+          title="Settings"
+          style="margin-top: auto"
+        >
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
+            />
+          </svg>
+          <span class="lbl">SETTINGS</span>
+        </div>
+      </nav>
+
+      <!-- Workspace -->
+      <div class="workspace">
+        <section class="panel-left">
+          <div class="panel-header">
+            <span>Description</span>
+            <span
+              id="modeLabel"
+              style="font-size: 10px; color: var(--muted)"
+            ></span>
+          </div>
+          <div class="problem-scroll">
+            <h1 class="p-title" id="pTitle">Loading…</h1>
+            <div class="p-meta">
+              <span class="p-tag medium" id="pDiff">medium</span>
+              <span class="p-tag" id="pSlug"></span>
+              <span class="p-tag" id="pFn"></span>
+            </div>
+
+            <div class="p-setup">
+              <strong>Setup:</strong> 좌측의 설명을 읽고 오른쪽 에디터에 풀이를
+              작성한 뒤 <code>RUN</code>으로 예제 케이스를,
+              <code>Submit</code>으로 전체 채점을 실행하세요.
+            </div>
+
+            <div class="p-desc" id="pDesc"></div>
+
+            <div class="p-section-title">Examples</div>
+            <div id="pExamples"></div>
+
+            <!-- Memo mode slot (shown when mode=memo) -->
+            <div id="memoBox" class="memo-box" style="display: none">
+              <div class="p-section-title" style="margin-top: 0">
+                Self-Explain
+              </div>
+              <textarea
+                id="memoInput"
+                placeholder="풀이 방법, 시간복잡도, 엣지케이스를 자신의 말로 정리해보세요."
+              ></textarea>
+              <div class="row">
+                <span id="memoSavedAt">아직 저장되지 않았습니다.</span>
+                <button id="memoFinalBtn" class="memo-save">최종 저장</button>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div id="assistantMode" class="mode-panel">
-          <h3>Chat</h3>
-          <div class="row">
-            <label class="muted">Session:</label>
-            <input id="chatSessionId" class="text-input" readonly />
-            <button id="downloadLogBtn" class="btn secondary">
-              로그 다운로드
-            </button>
-          </div>
-          <div id="chatHistory" class="chat-history"></div>
-          <h4>Question</h4>
-          <textarea id="chatInput" class="memo-input"></textarea>
-          <div class="row">
-            <span class="muted"
-              >모델 응답은 judge-server를 통해 호출됩니다.</span
-            >
-            <button id="chatSendBtn" class="btn primary">질문 보내기</button>
-          </div>
-        </div>
+        <div class="divider"></div>
 
-        <div id="socraticMode" class="mode-panel">
-          <div class="blank-window"></div>
+        <section class="panel-right">
+          <div class="editor-wrap">
+            <div class="editor-tabs">
+              <div class="editor-tab">
+                <span class="dot"></span>
+                <span id="fileName">solution.js</span>
+              </div>
+              <div class="editor-tabs-right">
+                <span class="lang-chip" id="langChip"
+                  >JavaScript · Node 20</span
+                >
+                <span class="icon-btn" id="resetBtn" title="Reset to starter">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M3 12a9 9 0 1 0 3-6.7" />
+                    <path d="M3 4v5h5" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+            <div class="editor">
+              <div class="gutter" id="gutter"></div>
+              <div class="code-area" id="codeArea">
+                <pre
+                  class="code-highlight"
+                  id="codeHighlight"
+                  aria-hidden="true"
+                ></pre>
+                <textarea
+                  class="code-input"
+                  id="codeInput"
+                  spellcheck="false"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="vdivider"></div>
+
+          <div class="terminal">
+            <div class="term-tabs">
+              <div class="term-tab active" data-term="terminal">TERMINAL</div>
+              <div class="term-tab" data-term="output">OUTPUT</div>
+              <div class="term-right">
+                <span class="term-hint">
+                  <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                  Real-time
+                </span>
+                <button class="btn-run" id="runBtn">
+                  <svg viewBox="0 0 24 24">
+                    <polygon points="5,3 19,12 5,21" fill="currentColor" />
+                  </svg>
+                  RUN
+                </button>
+              </div>
+            </div>
+            <div class="term-body" id="termBody">
+              <div>
+                <span class="prompt">/usercode/session$</span>
+                <span class="term-cursor"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions-row">
+            <div class="actions-left">
+              <span
+                id="gateNote"
+                style="font-size: 11px; letter-spacing: 0.02em"
+              ></span>
+            </div>
+            <div class="actions-right">
+              <button class="btn primary" id="submitBtn">Submit</button>
+              <button class="btn accent" id="nextBtn" disabled>Next ›</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- AI panel -->
+    <div class="ai-panel" id="aiPanel" role="dialog" aria-label="AI Assistant">
+      <div class="ai-head">
+        <span class="orb"></span>
+        <div>
+          <div class="title">AI Assistant</div>
+          <div class="subtitle">
+            OpenRouter · <span id="aiModel">anthropic/claude-3.5-haiku</span>
+          </div>
         </div>
-      </section>
-    </section>
+        <span class="ai-close" id="aiClose">✕</span>
+      </div>
+      <div class="ai-body" id="aiBody"></div>
+      <div class="ai-foot">
+        <input class="ai-input" id="aiInput" placeholder="질문을 입력하세요…" />
+        <button class="ai-send" id="aiSend" title="보내기">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 12l16-8-6 18-3-8-7-2z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings panel -->
+    <div class="settings-panel" id="settingsPanel">
+      <h4>Settings</h4>
+      <div class="st-row">
+        <span>Accent</span>
+        <div class="st-swatches" id="stAccent">
+          <div
+            class="st-sw active"
+            data-accent="cyan"
+            style="background: oklch(0.78 0.12 215)"
+          ></div>
+          <div
+            class="st-sw"
+            data-accent="violet"
+            style="background: oklch(0.74 0.15 285)"
+          ></div>
+          <div
+            class="st-sw"
+            data-accent="green"
+            style="background: oklch(0.78 0.15 150)"
+          ></div>
+          <div
+            class="st-sw"
+            data-accent="amber"
+            style="background: oklch(0.82 0.14 75)"
+          ></div>
+        </div>
+      </div>
+      <div class="st-row">
+        <span>Language</span>
+        <div class="st-seg" id="stLang">
+          <button data-lang="javascript">JS</button>
+          <button data-lang="python">Python</button>
+          <button data-lang="cpp">C++</button>
+        </div>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>

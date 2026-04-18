@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent for the judge-server.
+  Copy to: ~/Library/LaunchAgents/com.lab.judge-server.plist
+  Replace <USERNAME> and <JUDGE_SHARED_TOKEN_VALUE> below.
+  Load with:
+    launchctl load ~/Library/LaunchAgents/com.lab.judge-server.plist
+  Restart after editing:
+    launchctl unload ~/Library/LaunchAgents/com.lab.judge-server.plist \
+      && launchctl load ~/Library/LaunchAgents/com.lab.judge-server.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lab.judge-server</string>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/<USERNAME>/LeetcodeClone/judge-server</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/<USERNAME>/LeetcodeClone/judge-server/.venv/bin/uvicorn</string>
+    <string>main:app</string>
+    <string>--host</string>
+    <string>127.0.0.1</string>
+    <string>--port</string>
+    <string>8000</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>JUDGE_SHARED_TOKEN</key>
+    <string><JUDGE_SHARED_TOKEN_VALUE></string>
+    <!-- Optional: tighten CORS to your Vercel origin(s).
+         Leave the key out to allow * (proxy path doesn't need CORS anyway). -->
+    <!--
+    <key>ALLOWED_ORIGINS</key>
+    <string>https://leetcodeclone.vercel.app</string>
+    -->
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/<USERNAME>/LeetcodeClone/judge-server/judge.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/<USERNAME>/LeetcodeClone/judge-server/judge.err</string>
+</dict>
+</plist>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent that keeps the Cloudflare Tunnel alive.
+  Copy to: ~/Library/LaunchAgents/com.lab.cloudflared.plist
+  Replace <USERNAME>. Confirm cloudflared path with `which cloudflared`.
+  Apple Silicon Homebrew installs to /opt/homebrew/bin; Intel uses /usr/local/bin.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lab.cloudflared</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>tunnel</string>
+    <string>--config</string>
+    <string>/Users/<USERNAME>/.cloudflared/config.yml</string>
+    <string>run</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/<USERNAME>/cloudflared.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/<USERNAME>/cloudflared.err</string>
+</dict>
+</plist>

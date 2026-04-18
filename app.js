@@ -1,391 +1,1043 @@
-const JUDGE_API_BASE =
-  localStorage.getItem("judgeApiBase") || "http://127.0.0.1:8000";
+// ─────────────────────────────────────────────
+// Coding Platform · frontend logic
+// Dark IDE redesign wired to judge-server backend
+// ─────────────────────────────────────────────
 
-let problems = [];
-let testcases = {};
-let problemSets = [];
+// API endpoints. By default talk to Vercel serverless proxies (/api/*).
+// For local development outside Vercel, set localStorage.judgeApiBase to the
+// judge-server origin (e.g. http://127.0.0.1:8000) — the frontend will then
+// call /judge and /client/log directly on that origin, and /api/chat will
+// still work only if vercel dev is running.
+const JUDGE_API_BASE_OVERRIDE = localStorage.getItem("judgeApiBase") || "";
+const JUDGE_URL = JUDGE_API_BASE_OVERRIDE
+  ? `${JUDGE_API_BASE_OVERRIDE.replace(/\/$/, "")}/judge`
+  : "/api/judge";
+const LOG_ENDPOINT = JUDGE_API_BASE_OVERRIDE
+  ? `${JUDGE_API_BASE_OVERRIDE.replace(/\/$/, "")}/client/log`
+  : "/api/log";
+const CHAT_URL = "/api/chat";
 
-let selectedProblem = null;
-let activeSet = null;
-let activeSetQueue = [];
-let activeSetIndex = 0;
-let chatMessages = [];
-
-const params = new URLSearchParams(window.location.search);
+const PARAMS = new URLSearchParams(window.location.search);
 const runArgs = {
-  setId: Number(params.get("set") || params.get("set_id") || 1),
-  mode: (params.get("mode") || "memo").toLowerCase(),
-  userId: params.get("user_id") || "anonymous",
-  language: (params.get("lang") || "javascript").toLowerCase(),
+  setId: PARAMS.get("set") || PARAMS.get("set_id") || null,
+  mode: (PARAMS.get("mode") || "memo").toLowerCase(),
+  userIdParam: PARAMS.get("user_id") || null,
+  language: (PARAMS.get("lang") || "javascript").toLowerCase(),
 };
-
-const chatSessionIdKey = `chatSessionId:${runArgs.userId}`;
-let chatSessionId =
-  localStorage.getItem(chatSessionIdKey) || crypto.randomUUID();
-localStorage.setItem(chatSessionIdKey, chatSessionId);
-
-const allowedModes = new Set(["memo", "assistant", "socratic"]);
-if (!allowedModes.has(runArgs.mode)) runArgs.mode = "memo";
-
-const els = {
-  title: document.getElementById("problemTitle"),
-  desc: document.getElementById("problemDesc"),
-  examples: document.getElementById("examples"),
-  editor: document.getElementById("editor"),
-  result: document.getElementById("result"),
-
-  progressBadge: document.getElementById("progressBadge"),
-  currentModeBadge: document.getElementById("currentModeBadge"),
-  modeSectionTitle: document.getElementById("modeSectionTitle"),
-  runBtn: document.getElementById("runBtn"),
-  submitBtn: document.getElementById("submitBtn"),
-  nextProblemBtn: document.getElementById("nextProblemBtn"),
-
-  memoMode: document.getElementById("memoMode"),
-  assistantMode: document.getElementById("assistantMode"),
-  socraticMode: document.getElementById("socraticMode"),
-
-  memoInput: document.getElementById("memoInput"),
-  memoSavedAt: document.getElementById("memoSavedAt"),
-  memoFinalSaveBtn: document.getElementById("memoFinalSaveBtn"),
-
-  chatSessionId: document.getElementById("chatSessionId"),
-  downloadLogBtn: document.getElementById("downloadLogBtn"),
-  chatHistory: document.getElementById("chatHistory"),
-  chatInput: document.getElementById("chatInput"),
-  chatSendBtn: document.getElementById("chatSendBtn"),
-};
-
-function nowKstString() {
-  return new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+if (!["memo", "assistant", "socratic"].includes(runArgs.mode)) {
+  runArgs.mode = "memo";
+}
+if (!["javascript", "python", "cpp"].includes(runArgs.language)) {
+  runArgs.language = "javascript";
 }
 
-function logKey() {
-  return `runlog:${runArgs.userId}:set${runArgs.setId}`;
+const SESSION_USER_KEY = "cp_user_id";
+const LOG_QUEUE_KEY = "cp_log_queue";
+
+const session = {
+  userId: null,
+  sessionId: null,
+  startedAt: null,
+};
+
+const state = {
+  problems: [],
+  sets: [],
+  testcases: {},
+  queue: [],
+  idx: 0,
+  solved: new Set(),
+  lang: runArgs.language,
+  code: "",
+  runResult: null,
+  accent: "cyan",
+};
+
+const els = {};
+function cacheEls() {
+  const ids = [
+    "pTitle",
+    "pDiff",
+    "pSlug",
+    "pFn",
+    "pDesc",
+    "pExamples",
+    "qCounter",
+    "fileName",
+    "langChip",
+    "gutter",
+    "codeHighlight",
+    "codeInput",
+    "codeArea",
+    "termBody",
+    "runBtn",
+    "submitBtn",
+    "nextBtn",
+    "gateNote",
+    "timer",
+    "railProbs",
+    "railAi",
+    "railSettings",
+    "aiPanel",
+    "aiClose",
+    "aiBody",
+    "aiInput",
+    "aiSend",
+    "aiModel",
+    "settingsPanel",
+    "userChip",
+    "userChipName",
+    "exportBtn",
+    "modeLabel",
+    "memoBox",
+    "memoInput",
+    "memoSavedAt",
+    "memoFinalBtn",
+    "resetBtn",
+    "app",
+  ];
+  ids.forEach((id) => (els[id] = document.getElementById(id)));
 }
 
-async function logEvent(action, detail = {}) {
+// ────────────── Logging (central server) ──────────────
+function logEvent(action, detail = {}) {
+  if (!session.userId) return;
+  const p = currentProblem();
   const row = {
     ts: new Date().toISOString(),
-    userId: runArgs.userId,
+    userId: session.userId,
+    sessionId: session.sessionId,
     setId: runArgs.setId,
     mode: runArgs.mode,
-    problemId: selectedProblem?.id || null,
-    index: activeSetIndex,
+    language: state.lang,
+    problemId: p?.id ?? null,
+    problemIdx: state.idx,
     action,
     detail,
   };
+  const mirrorKey = `cp_log_${session.userId}`;
+  const mirror = JSON.parse(localStorage.getItem(mirrorKey) || "[]");
+  mirror.push(row);
+  localStorage.setItem(mirrorKey, JSON.stringify(mirror));
 
-  const logs = JSON.parse(localStorage.getItem(logKey()) || "[]");
-  logs.push(row);
-  localStorage.setItem(logKey(), JSON.stringify(logs));
+  const q = JSON.parse(localStorage.getItem(LOG_QUEUE_KEY) || "[]");
+  q.push(row);
+  localStorage.setItem(LOG_QUEUE_KEY, JSON.stringify(q));
+  flushLogs();
+}
 
+let flushing = false;
+async function flushLogs() {
+  if (flushing) return;
+  flushing = true;
   try {
-    await fetch(`${JUDGE_API_BASE}/client/log`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(row),
-    });
-  } catch {}
-}
-
-function chatKey() {
-  return `chat:${runArgs.userId}:set${runArgs.setId}:mode${runArgs.mode}`;
-}
-
-function saveChatHistory() {
-  localStorage.setItem(chatKey(), JSON.stringify(chatMessages));
-}
-
-function loadChatHistory() {
-  const saved = localStorage.getItem(chatKey());
-  if (!saved) return;
-  try {
-    const messages = JSON.parse(saved);
-    els.chatHistory.innerHTML = "";
-    chatMessages = [];
-    messages.forEach(({ role, text }) => appendChat(role, text, false));
-  } catch {}
-}
-
-function getMemoKey() {
-  if (!selectedProblem) return `memo:${runArgs.userId}:default`;
-  return `memo:${runArgs.userId}:set${runArgs.setId}:p${selectedProblem.id}`;
-}
-
-function autosaveMemo() {
-  if (!selectedProblem) return;
-  localStorage.setItem(getMemoKey(), els.memoInput.value);
-  els.memoSavedAt.textContent = `자동저장: ${nowKstString()}`;
-}
-
-function finalSaveMemo() {
-  if (!selectedProblem) return;
-  const payload = {
-    userId: runArgs.userId,
-    setId: runArgs.setId,
-    problemId: selectedProblem.id,
-    savedAt: nowKstString(),
-    content: els.memoInput.value,
-  };
-  localStorage.setItem(`${getMemoKey()}:final`, JSON.stringify(payload));
-  els.memoSavedAt.textContent = `최종저장 완료: ${payload.savedAt}`;
-  logEvent("memo_final_save");
-}
-
-function loadMemo() {
-  if (!selectedProblem) return;
-  const memo = localStorage.getItem(getMemoKey()) || "";
-  els.memoInput.value = memo;
-  els.memoSavedAt.textContent = memo
-    ? `불러옴: ${nowKstString()}`
-    : "아직 저장되지 않았습니다.";
-}
-
-function applyFixedMode() {
-  els.memoMode.classList.toggle("active", runArgs.mode === "memo");
-  els.assistantMode.classList.toggle("active", runArgs.mode === "assistant");
-  els.socraticMode.classList.toggle("active", runArgs.mode === "socratic");
-
-  const modeLabel =
-    runArgs.mode === "memo"
-      ? "SELF-EXPLAIN"
-      : runArgs.mode === "assistant"
-        ? "CHAT"
-        : "SOCRATIC";
-  els.currentModeBadge.textContent = `MODE: ${modeLabel}`;
-  els.modeSectionTitle.textContent = `${modeLabel} MODE`;
-}
-
-function updateProgressBadge() {
-  els.progressBadge.textContent = `${activeSetIndex + 1} / ${activeSetQueue.length}`;
-  const done = activeSetIndex >= activeSetQueue.length - 1;
-  els.nextProblemBtn.disabled = done;
-  if (done) els.nextProblemBtn.textContent = "완료";
-}
-
-async function loadData() {
-  try {
-    const [problemsRes, testcasesRes, setsRes] = await Promise.all([
-      fetch("./data/problems.json"),
-      fetch("./data/testcases.json"),
-      fetch("./data/problem_sets.json"),
-    ]);
-
-    if (!problemsRes.ok || !testcasesRes.ok || !setsRes.ok) {
-      throw new Error("문제/테스트케이스/문제세트 파일을 불러오지 못했습니다.");
+    const q = JSON.parse(localStorage.getItem(LOG_QUEUE_KEY) || "[]");
+    if (!q.length) return;
+    const remaining = [];
+    for (const row of q) {
+      try {
+        const res = await fetch(LOG_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(row),
+          keepalive: true,
+        });
+        if (!res.ok) remaining.push(row);
+      } catch {
+        remaining.push(row);
+      }
     }
-
-    problems = await problemsRes.json();
-    testcases = await testcasesRes.json();
-    problemSets = (await setsRes.json()).sets || [];
-
-    activeSet = problemSets.find(
-      (s) => Number(s.setId) === Number(runArgs.setId),
-    );
-    if (!activeSet)
-      throw new Error(`set_id=${runArgs.setId} 문제세트를 찾을 수 없습니다.`);
-
-    activeSetQueue = activeSet.problemIds || [];
-    if (!activeSetQueue.length)
-      throw new Error(`set_id=${runArgs.setId} 문제세트가 비어 있습니다.`);
-
-    activeSetIndex = 0;
-    selectedProblem =
-      problems.find((p) => p.id === activeSetQueue[activeSetIndex]) || null;
-    if (!selectedProblem)
-      throw new Error("문제세트의 problemId가 problems.json에 없습니다.");
-
-    renderProblem();
-    logEvent("session_start", { setName: activeSet.name });
-  } catch (err) {
-    els.result.textContent = `데이터 로드 실패: ${err.message}`;
+    localStorage.setItem(LOG_QUEUE_KEY, JSON.stringify(remaining));
+  } finally {
+    flushing = false;
   }
 }
+setInterval(flushLogs, 15_000);
+window.addEventListener("online", flushLogs);
+window.addEventListener("beforeunload", () => {
+  if (!session.userId) return;
+  const row = {
+    ts: new Date().toISOString(),
+    userId: session.userId,
+    sessionId: session.sessionId,
+    setId: runArgs.setId,
+    mode: runArgs.mode,
+    action: "session_end",
+    detail: { problemIdx: state.idx, solvedCount: state.solved.size },
+  };
+  try {
+    navigator.sendBeacon(
+      LOG_ENDPOINT,
+      new Blob([JSON.stringify(row)], { type: "application/json" }),
+    );
+  } catch {}
+});
 
-function renderProblem() {
-  if (!selectedProblem) return;
+// ────────────── Progress persistence ──────────────
+const progressKey = (uid) => `cp_progress_${uid}`;
+function getProgress(uid) {
+  try {
+    return JSON.parse(localStorage.getItem(progressKey(uid)) || "{}");
+  } catch {
+    return {};
+  }
+}
+function saveProgress(uid, patch) {
+  const cur = getProgress(uid);
+  const next = { ...cur, ...patch, lastSeenAt: new Date().toISOString() };
+  localStorage.setItem(progressKey(uid), JSON.stringify(next));
+}
 
-  // 제목/난이도 미표시 정책
-  els.title.textContent = `문제 ${activeSetIndex + 1}`;
-  els.desc.textContent = selectedProblem.description;
+// ────────────── Data load ──────────────
+async function loadData() {
+  const [p, t, s] = await Promise.all([
+    fetch("./data/problems.json").then((r) => r.json()),
+    fetch("./data/testcases.json").then((r) => r.json()),
+    fetch("./data/problem_sets.json").then((r) => r.json()),
+  ]);
+  state.problems = p;
+  state.testcases = t;
+  state.sets = s.sets || [];
 
-  els.examples.innerHTML = "";
-  selectedProblem.examples.forEach((ex, i) => {
+  // Build queue: URL set= selects a single set; otherwise merge all sets (max 20)
+  let pool = [];
+  if (runArgs.setId) {
+    const match = state.sets.find(
+      (x) => Number(x.setId) === Number(runArgs.setId),
+    );
+    if (match) pool = (match.problemIds || []).slice();
+  }
+  if (!pool.length) {
+    state.sets.forEach((set) =>
+      (set.problemIds || []).forEach((id) => {
+        if (!pool.includes(id)) pool.push(id);
+      }),
+    );
+  }
+  if (!pool.length) pool = state.problems.map((x) => x.id);
+  state.queue = pool.slice(0, 20);
+
+  // Resume progress
+  const prog = getProgress(session.userId);
+  state.solved = new Set(prog.solvedIdx || []);
+  let resumeIdx = prog.idx ?? 0;
+  for (let i = 0; i < state.queue.length; i++) {
+    if (!state.solved.has(i)) {
+      resumeIdx = i;
+      break;
+    }
+    if (i === state.queue.length - 1) resumeIdx = i;
+  }
+  state.idx = resumeIdx;
+
+  render();
+  logEvent("session_start", {
+    resumedFrom: state.idx,
+    solvedCount: state.solved.size,
+    queueLength: state.queue.length,
+  });
+}
+
+function currentProblem() {
+  if (!state.queue.length) return null;
+  return state.problems.find((p) => p.id === state.queue[state.idx]);
+}
+
+// ────────────── Render ──────────────
+function escapeHtml(s) {
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[c],
+  );
+}
+
+function renderProbList() {
+  const host = els.railProbs;
+  if (!host) return;
+  const total = state.queue.length;
+  host.innerHTML = "";
+  for (let i = 0; i < total; i++) {
+    const solved = state.solved.has(i);
+    const current = i === state.idx;
+    const locked = !solved && !current;
+    const node = document.createElement("div");
+    node.className =
+      `p-node ${solved ? "solved" : ""} ${current ? "current" : ""} ${locked ? "locked" : ""}`.trim();
+    node.title = `Problem ${i + 1}${solved ? " · solved" : current ? " · current" : " · locked"}`;
+    node.innerHTML =
+      `<span class="num">${String(i + 1).padStart(2, "0")}</span>` +
+      (solved
+        ? `<svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>`
+        : locked
+          ? `<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`
+          : `<span class="num-big">${i + 1}</span>`);
+    host.appendChild(node);
+  }
+  const cur = host.querySelector(".p-node.current");
+  if (cur) cur.scrollIntoView({ block: "nearest" });
+}
+
+function updateNextGate() {
+  const canAdvance =
+    state.solved.has(state.idx) && state.idx < state.queue.length - 1;
+  els.nextBtn.disabled = !canAdvance;
+  els.nextBtn.title = canAdvance
+    ? "다음 문제로 이동"
+    : state.idx >= state.queue.length - 1
+      ? "마지막 문제입니다"
+      : "Submit으로 모든 테스트를 통과해야 다음 문제로 이동할 수 있습니다";
+  els.gateNote.textContent = state.solved.has(state.idx)
+    ? state.idx >= state.queue.length - 1
+      ? "✓ 모든 문제를 완료했습니다"
+      : "✓ 해결 완료 — Next로 이동"
+    : "Submit으로 모든 케이스 통과 시 Next 활성화";
+  els.gateNote.style.color = state.solved.has(state.idx)
+    ? "var(--green)"
+    : "var(--muted)";
+}
+
+function render() {
+  const p = currentProblem();
+  if (!p) return;
+
+  els.pTitle.textContent = `Task ${state.idx + 1}: ${p.title}`;
+  els.pDiff.textContent = p.difficulty || "medium";
+  els.pDiff.className = `p-tag ${p.difficulty || "medium"}`;
+  els.pSlug.textContent = p.slug || "";
+  els.pFn.textContent = p.functionName ? `fn: ${p.functionName}` : "";
+
+  const descSafe = escapeHtml(p.description || "");
+  els.pDesc.innerHTML = `<p>${descSafe}</p>`;
+
+  els.pExamples.innerHTML = "";
+  (p.examples || []).forEach((ex, i) => {
     const box = document.createElement("div");
     box.className = "example";
-    box.innerHTML = `<strong>Example ${i + 1}</strong><br/>Input: ${ex.input}<br/>Output: ${ex.output}`;
-    els.examples.appendChild(box);
+    box.innerHTML = `
+      <div class="ex-label">Example ${i + 1}</div>
+      <div class="ex-row"><span class="ex-k">Input</span><span class="ex-v">${escapeHtml(ex.input)}</span></div>
+      <div class="ex-row"><span class="ex-k">Output</span><span class="ex-v">${escapeHtml(ex.output)}</span></div>
+    `;
+    els.pExamples.appendChild(box);
   });
 
-  const key = `code:${runArgs.userId}:set${runArgs.setId}:p${selectedProblem.id}:${runArgs.language}`;
-  const saved = localStorage.getItem(key);
-  els.editor.value =
-    saved ||
-    selectedProblem.starter[runArgs.language] ||
-    selectedProblem.starter.javascript ||
-    "";
+  els.qCounter.textContent = `Question ${state.idx + 1} of ${state.queue.length}`;
 
-  loadMemo();
-  updateProgressBadge();
-  els.chatSessionId.value = chatSessionId;
-  loadChatHistory();
+  renderProbList();
+  updateNextGate();
+
+  const ext = { python: "py", javascript: "js", cpp: "cpp" }[state.lang];
+  const fnKebab = (p.slug || "solution").replace(/-/g, "_");
+  els.fileName.textContent = `${fnKebab}.${ext}`;
+  els.langChip.textContent =
+    state.lang === "python"
+      ? "Python 3"
+      : state.lang === "javascript"
+        ? "JavaScript · Node"
+        : "C++ · g++";
+
+  // Load saved code for this user/problem/language, else starter
+  const codeKey = `code:${session.userId}:p${p.id}:${state.lang}`;
+  const saved = localStorage.getItem(codeKey);
+  state.code =
+    saved ??
+    p.starter?.[state.lang] ??
+    p.starter?.javascript ??
+    "// starter missing";
+  els.codeInput.value = state.code;
+  paintEditor();
+
+  // Memo mode
+  if (runArgs.mode === "memo") {
+    els.memoBox.style.display = "block";
+    loadMemo();
+  } else {
+    els.memoBox.style.display = "none";
+  }
+  els.modeLabel.textContent = `· MODE: ${runArgs.mode.toUpperCase()}`;
+}
+
+// ────────────── Syntax highlight (overlay) ──────────────
+const KW = {
+  python: new Set([
+    "def",
+    "return",
+    "if",
+    "elif",
+    "else",
+    "for",
+    "while",
+    "in",
+    "not",
+    "and",
+    "or",
+    "import",
+    "from",
+    "class",
+    "pass",
+    "None",
+    "True",
+    "False",
+    "with",
+    "as",
+    "try",
+    "except",
+    "finally",
+    "raise",
+    "lambda",
+    "async",
+    "await",
+    "yield",
+    "self",
+    "print",
+  ]),
+  javascript: new Set([
+    "function",
+    "const",
+    "let",
+    "var",
+    "return",
+    "if",
+    "else",
+    "for",
+    "while",
+    "in",
+    "of",
+    "new",
+    "class",
+    "this",
+    "null",
+    "true",
+    "false",
+    "undefined",
+    "import",
+    "from",
+    "export",
+    "async",
+    "await",
+    "try",
+    "catch",
+    "finally",
+    "throw",
+    "typeof",
+    "instanceof",
+  ]),
+  cpp: new Set([
+    "int",
+    "return",
+    "if",
+    "else",
+    "for",
+    "while",
+    "class",
+    "struct",
+    "public",
+    "private",
+    "protected",
+    "auto",
+    "const",
+    "void",
+    "vector",
+    "string",
+    "bool",
+    "true",
+    "false",
+    "nullptr",
+    "include",
+    "using",
+    "namespace",
+    "std",
+    "char",
+    "double",
+    "float",
+    "long",
+    "short",
+    "unsigned",
+    "signed",
+    "template",
+    "typename",
+  ]),
+};
+
+function findComment(line, marker) {
+  let inStr = null;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inStr) {
+      if (ch === inStr) inStr = null;
+    } else if (ch === '"' || ch === "'") {
+      inStr = ch;
+    } else if (
+      marker.length === 1
+        ? ch === marker
+        : line.slice(i, i + marker.length) === marker
+    ) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function highlightLine(line, lang) {
+  const kws = KW[lang] || KW.python;
+  const commentMarker = lang === "python" ? "#" : "//";
+  const ci = findComment(line, commentMarker);
+  const codePart = ci === -1 ? line : line.slice(0, ci);
+  const commentPart = ci === -1 ? "" : line.slice(ci);
+
+  let out = "";
+  let i = 0;
+  const n = codePart.length;
+  while (i < n) {
+    const ch = codePart[i];
+    if (ch === " " || ch === "\t") {
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      let j = i + 1;
+      while (j < n && codePart[j] !== ch) {
+        if (codePart[j] === "\\") j++;
+        j++;
+      }
+      const str = codePart.slice(i, Math.min(j + 1, n));
+      out += `<span class="str">${escapeHtml(str)}</span>`;
+      i = j + 1;
+      continue;
+    }
+    if (/\d/.test(ch)) {
+      let j = i;
+      while (j < n && /[\d.]/.test(codePart[j])) j++;
+      out += `<span class="num-tok">${escapeHtml(codePart.slice(i, j))}</span>`;
+      i = j;
+      continue;
+    }
+    if (/[A-Za-z_]/.test(ch)) {
+      let j = i;
+      while (j < n && /[A-Za-z0-9_]/.test(codePart[j])) j++;
+      const ident = codePart.slice(i, j);
+      let k = j;
+      while (k < n && codePart[k] === " ") k++;
+      const isCall = codePart[k] === "(";
+      if (kws.has(ident)) {
+        out += `<span class="kw">${escapeHtml(ident)}</span>`;
+      } else if (isCall) {
+        out += `<span class="fn">${escapeHtml(ident)}</span>`;
+      } else {
+        out += escapeHtml(ident);
+      }
+      i = j;
+      continue;
+    }
+    out += escapeHtml(ch);
+    i++;
+  }
+
+  if (commentPart) {
+    out += `<span class="com">${escapeHtml(commentPart)}</span>`;
+  }
+  return out;
+}
+
+function paintEditor() {
+  const code = els.codeInput.value;
+  state.code = code;
+  const lines = code.split("\n");
+  // gutter
+  els.gutter.innerHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join("");
+  // highlight
+  els.codeHighlight.innerHTML = lines
+    .map((ln) => highlightLine(ln, state.lang) || "&nbsp;")
+    .join("\n");
+  // sync scroll
+  els.codeHighlight.scrollTop = els.codeInput.scrollTop;
+  els.codeHighlight.scrollLeft = els.codeInput.scrollLeft;
+  els.gutter.scrollTop = els.codeInput.scrollTop;
 }
 
 function saveCode() {
-  if (!selectedProblem) return;
-  const key = `code:${runArgs.userId}:set${runArgs.setId}:p${selectedProblem.id}:${runArgs.language}`;
-  localStorage.setItem(key, els.editor.value);
+  const p = currentProblem();
+  if (!p || !session.userId) return;
+  const key = `code:${session.userId}:p${p.id}:${state.lang}`;
+  localStorage.setItem(key, state.code);
 }
 
-function formatJudgeResponse(resp, mode) {
-  const lines = [
-    resp.status || "Unknown",
-    `Language: ${runArgs.language}`,
-    `Mode: ${mode.toUpperCase()}`,
-    `Passed: ${resp.passed ?? 0}/${resp.total ?? 0}`,
-    `Runtime: ${resp.runtimeMs ?? 0} ms`,
-  ];
-
-  if (resp.stderr) {
-    lines.push("\n[stderr]");
-    lines.push(resp.stderr);
-  }
-
-  if (Array.isArray(resp.caseResults) && resp.caseResults.length) {
-    lines.push("\n[Case Results]");
-    resp.caseResults.forEach((c) => {
-      lines.push(
-        `\n#${c.index} ${c.passed ? "✅" : "❌"}\ninput: ${JSON.stringify(c.input)}\nexpected: ${JSON.stringify(c.expected)}\nactual: ${JSON.stringify(c.actual)}${c.error ? `\nerror: ${c.error}` : ""}`,
-      );
-    });
-  }
-  return lines.join("\n");
+// ────────────── Terminal ──────────────
+function termClear() {
+  els.termBody.innerHTML = `<div><span class="prompt">/usercode/session$</span><span class="term-cursor"></span></div>`;
+}
+function termPush(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  const cursor = els.termBody.querySelector(".term-cursor")?.parentElement;
+  if (cursor && cursor === els.termBody.lastElementChild) cursor.remove();
+  els.termBody.appendChild(div);
+  const nl = document.createElement("div");
+  nl.innerHTML = `<span class="prompt">/usercode/session$</span><span class="term-cursor"></span>`;
+  els.termBody.appendChild(nl);
+  els.termBody.scrollTop = els.termBody.scrollHeight;
 }
 
+// ────────────── Judge (real backend) ──────────────
 async function judge(mode) {
-  if (!selectedProblem) return "선택된 문제가 없습니다.";
+  const p = currentProblem();
+  if (!p) return;
+  saveCode();
+  const cmd =
+    mode === "submit"
+      ? "pytest --submit (visible + hidden)"
+      : `${state.lang} ${els.fileName.textContent}`;
+  termPush(`<span class="term-muted">$ ${escapeHtml(cmd)}</span>`);
 
   const body = {
-    problemId: selectedProblem.id,
-    language: runArgs.language,
-    code: els.editor.value,
+    problemId: p.id,
+    language: state.lang,
+    code: state.code,
     mode,
   };
+  logEvent(mode, {
+    codeLength: state.code.length,
+    code: state.code.slice(0, 4000),
+  });
 
   try {
-    const res = await fetch(`${JUDGE_API_BASE}/judge`, {
+    const res = await fetch(JUDGE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok)
-      return `Judge API Error (${res.status})\n${JSON.stringify(data)}`;
-    await logEvent(mode, {
+    if (!res.ok) {
+      termPush(
+        `<span class="term-err">Judge Error ${res.status}</span> <span class="term-muted">${escapeHtml(JSON.stringify(data).slice(0, 400))}</span>`,
+      );
+      return;
+    }
+    const passed = data.passed ?? 0;
+    const total = data.total ?? 0;
+    termPush(
+      `<span class="term-muted">Running ${total} test case(s) · runtime ${data.runtimeMs ?? 0} ms</span>`,
+    );
+    if (Array.isArray(data.caseResults)) {
+      data.caseResults.forEach((c) => {
+        if (c.passed) {
+          termPush(`<span class="term-ok">  ✓ case #${c.index} passed</span>`);
+        } else {
+          termPush(
+            `<span class="term-err">  ✗ case #${c.index} failed</span> <span class="term-muted">input=${escapeHtml(JSON.stringify(c.input))} expected=${escapeHtml(JSON.stringify(c.expected))} actual=${escapeHtml(JSON.stringify(c.actual))}${c.error ? " err=" + escapeHtml(String(c.error).slice(0, 200)) : ""}</span>`,
+          );
+        }
+      });
+    }
+    if (data.stderr) {
+      termPush(
+        `<span class="term-err">[stderr]</span> <span class="term-muted">${escapeHtml(String(data.stderr).slice(0, 800))}</span>`,
+      );
+    }
+    termPush(
+      `<span class="${passed === total && total > 0 ? "term-ok" : "term-err"}">${passed === total && total > 0 ? "✓ ALL PASSED" : "✗ FAILED"}</span> <span class="term-muted">${passed}/${total} · mode=${mode}</span>`,
+    );
+
+    logEvent(`${mode}_result`, {
       status: data.status,
-      passed: data.passed,
-      total: data.total,
+      passed,
+      total,
+      runtimeMs: data.runtimeMs,
     });
-    return formatJudgeResponse(data, mode);
+
+    if (mode === "submit" && total > 0 && passed === total) {
+      if (!state.solved.has(state.idx)) {
+        state.solved.add(state.idx);
+        saveProgress(session.userId, { solvedIdx: [...state.solved] });
+        logEvent("problem_solved", { problemIdx: state.idx });
+        termPush(
+          `<span class="term-ok">→ 다음 문제로 이동할 수 있습니다. NEXT 버튼을 누르세요.</span>`,
+        );
+      }
+      updateNextGate();
+      renderProbList();
+    }
   } catch (e) {
-    await logEvent(mode, { error: e.message });
-    return `채점 서버 연결 실패: ${e.message}\nJudge API: ${JUDGE_API_BASE}`;
+    termPush(
+      `<span class="term-err">채점 서버 연결 실패</span> <span class="term-muted">${escapeHtml(e.message)} (${JUDGE_URL})</span>`,
+    );
+    logEvent(`${mode}_error`, { error: e.message });
   }
 }
 
-async function nextProblem() {
-  if (activeSetIndex >= activeSetQueue.length - 1) return;
-  activeSetIndex += 1;
-  const pid = activeSetQueue[activeSetIndex];
-  selectedProblem = problems.find((p) => p.id === pid) || selectedProblem;
-  renderProblem();
-  await logEvent("next_problem", { toIndex: activeSetIndex, toProblemId: pid });
+// ────────────── Timer ──────────────
+let tSec = 0;
+setInterval(() => {
+  if (!session.userId) return;
+  tSec++;
+  const h = String(Math.floor(tSec / 3600)).padStart(2, "0");
+  const m = String(Math.floor((tSec % 3600) / 60)).padStart(2, "0");
+  const s = String(tSec % 60).padStart(2, "0");
+  els.timer.textContent = `${h}:${m}:${s}`;
+}, 1000);
+
+// ────────────── AI panel (OpenRouter via /api/chat proxy) ──────────────
+const OR_MODEL_KEY = "openrouter_model";
+const DEFAULT_MODEL = "anthropic/claude-3.5-haiku";
+let aiHistory = [];
+
+function getModel() {
+  return localStorage.getItem(OR_MODEL_KEY) || DEFAULT_MODEL;
 }
 
-function appendChat(role, text, save = true) {
-  const div = document.createElement("div");
-  div.className = `chat-item ${role}`;
-  div.textContent = `${role === "user" ? "나" : "GPT"}: ${text}`;
-  els.chatHistory.appendChild(div);
-  els.chatHistory.scrollTop = els.chatHistory.scrollHeight;
-  if (save) {
-    chatMessages.push({ role, text });
-    saveChatHistory();
-  }
+function openAI() {
+  els.aiPanel.classList.add("open");
+  els.aiModel.textContent = getModel();
+  setTimeout(() => els.aiInput.focus(), 50);
+}
+function closeAI() {
+  els.aiPanel.classList.remove("open");
+}
+function addMsg(role, html) {
+  const d = document.createElement("div");
+  d.className = `ai-msg ${role}`;
+  d.innerHTML = html;
+  els.aiBody.appendChild(d);
+  els.aiBody.scrollTop = els.aiBody.scrollHeight;
+  return d;
 }
 
-async function sendChat() {
-  const q = els.chatInput.value.trim();
+function buildSystemPrompt() {
+  const p = currentProblem();
+  const baseTone =
+    runArgs.mode === "socratic"
+      ? "You are a Socratic coding tutor. Never give a full solution. Instead ask guiding questions and provide minimal hints."
+      : "You are a concise coding tutor. Prefer hints over full solutions. Provide full code only if the student explicitly asks.";
+  if (!p) return baseTone;
+  return [
+    baseTone,
+    "Respond in the user's language (Korean if they write Korean).",
+    "Use short paragraphs and inline `code` where helpful.",
+    "",
+    `# Current Problem: ${p.title}`,
+    `Difficulty: ${p.difficulty}`,
+    `Description: ${p.description}`,
+    `Examples: ${JSON.stringify(p.examples || [])}`,
+    `Language: ${state.lang}`,
+    `Student's current code:\n\`\`\`${state.lang}\n${state.code.slice(0, 2000)}\n\`\`\``,
+  ].join("\n");
+}
+
+function renderMarkdown(src) {
+  let s = escapeHtml(src);
+  s = s.replace(/```([\s\S]*?)```/g, (_, c) => `<pre>${c}</pre>`);
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/\n/g, "<br>");
+  return s;
+}
+
+async function sendAI() {
+  const q = els.aiInput.value.trim();
   if (!q) return;
-  appendChat("user", q);
-  els.chatInput.value = "";
-  els.chatSendBtn.disabled = true;
+  addMsg("user", escapeHtml(q));
+  els.aiInput.value = "";
+  aiHistory.push({ role: "user", content: q });
+  logEvent("ai_user_message", { text: q });
 
+  const pending = addMsg("bot", `<em class="term-muted">생각 중…</em>`);
   try {
-    const res = await fetch(`${JUDGE_API_BASE}/assistant/chat`, {
+    const res = await fetch(CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sessionId: chatSessionId,
-        question: q,
-        problemId: selectedProblem?.id,
-        language: runArgs.language,
-        userId: runArgs.userId,
+        model: getModel(),
+        messages: [
+          { role: "system", content: buildSystemPrompt() },
+          ...aiHistory.slice(-12),
+        ],
+        temperature: 0.6,
+        max_tokens: 800,
       }),
     });
     const data = await res.json();
     if (!res.ok) {
-      appendChat("assistant", `오류: ${JSON.stringify(data)}`);
+      pending.innerHTML = `<span class="term-err">오류 ${res.status}</span>: ${escapeHtml(data?.error?.message || JSON.stringify(data))}`;
       return;
     }
-    appendChat("assistant", data.answer || "응답이 비어 있습니다.");
-    await logEvent("assistant_chat", { ok: true });
+    const text = data?.choices?.[0]?.message?.content || "(응답 비어 있음)";
+    aiHistory.push({ role: "assistant", content: text });
+    pending.innerHTML = renderMarkdown(text);
+    logEvent("ai_assistant_reply", { text, model: getModel() });
   } catch (e) {
-    appendChat("assistant", `서버 연결 실패: ${e.message}`);
-    await logEvent("assistant_chat", { ok: false, error: e.message });
-  } finally {
-    els.chatSendBtn.disabled = false;
+    pending.innerHTML = `<span class="term-err">네트워크 오류</span>: ${escapeHtml(e.message)}`;
   }
 }
 
-async function downloadLog() {
-  try {
-    const res = await fetch(
-      `${JUDGE_API_BASE}/assistant/logs/${chatSessionId}`,
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
+// ────────────── Memo (mode=memo) ──────────────
+function memoKey() {
+  const p = currentProblem();
+  if (!p || !session.userId) return null;
+  return `memo:${session.userId}:p${p.id}`;
+}
+function loadMemo() {
+  const k = memoKey();
+  if (!k) return;
+  els.memoInput.value = localStorage.getItem(k) || "";
+  els.memoSavedAt.textContent = els.memoInput.value
+    ? "불러옴"
+    : "아직 저장되지 않았습니다.";
+}
+function autosaveMemo() {
+  const k = memoKey();
+  if (!k) return;
+  localStorage.setItem(k, els.memoInput.value);
+  els.memoSavedAt.textContent = `자동저장: ${new Date().toLocaleTimeString("ko-KR")}`;
+}
+function finalSaveMemo() {
+  const k = memoKey();
+  if (!k) return;
+  const payload = {
+    userId: session.userId,
+    problemId: currentProblem()?.id,
+    savedAt: new Date().toISOString(),
+    content: els.memoInput.value,
+  };
+  localStorage.setItem(`${k}:final`, JSON.stringify(payload));
+  els.memoSavedAt.textContent = `최종 저장: ${new Date().toLocaleTimeString("ko-KR")}`;
+  logEvent("memo_final_save", { length: els.memoInput.value.length });
+}
 
-    const blob = new Blob([text], { type: "application/jsonl;charset=utf-8" });
+// ────────────── Settings ──────────────
+const ACCENTS = {
+  cyan: "oklch(0.78 0.12 215)",
+  violet: "oklch(0.74 0.15 285)",
+  green: "oklch(0.78 0.15 150)",
+  amber: "oklch(0.82 0.14 75)",
+};
+function applyAccent(name) {
+  state.accent = name;
+  document.documentElement.style.setProperty("--accent", ACCENTS[name]);
+  document.querySelectorAll("#stAccent .st-sw").forEach((s) => {
+    s.classList.toggle("active", s.dataset.accent === name);
+  });
+  localStorage.setItem("cp_accent", name);
+}
+function applyLang(name) {
+  state.lang = name;
+  document.querySelectorAll("#stLang button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.lang === name);
+  });
+  localStorage.setItem("cp_lang", name);
+  if (state.queue.length) render();
+}
+
+// ────────────── Wire up ──────────────
+function wireUp() {
+  els.runBtn.addEventListener("click", () => judge("run"));
+  els.submitBtn.addEventListener("click", () => judge("submit"));
+  els.nextBtn.addEventListener("click", () => {
+    if (!state.solved.has(state.idx)) return;
+    if (state.idx < state.queue.length - 1) {
+      state.idx++;
+      saveProgress(session.userId, { idx: state.idx });
+      logEvent("next_problem", { toIdx: state.idx });
+      render();
+      termClear();
+    }
+  });
+
+  els.codeInput.addEventListener("input", () => {
+    paintEditor();
+    saveCode();
+  });
+  els.codeInput.addEventListener("scroll", () => {
+    els.codeHighlight.scrollTop = els.codeInput.scrollTop;
+    els.codeHighlight.scrollLeft = els.codeInput.scrollLeft;
+    els.gutter.scrollTop = els.codeInput.scrollTop;
+  });
+  els.codeInput.addEventListener("keydown", (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const start = els.codeInput.selectionStart;
+      const end = els.codeInput.selectionEnd;
+      const before = els.codeInput.value.slice(0, start);
+      const after = els.codeInput.value.slice(end);
+      els.codeInput.value = before + "    " + after;
+      els.codeInput.selectionStart = els.codeInput.selectionEnd = start + 4;
+      paintEditor();
+      saveCode();
+    }
+  });
+
+  els.resetBtn.addEventListener("click", () => {
+    const p = currentProblem();
+    if (!p) return;
+    if (!confirm("현재 코드를 starter로 초기화하시겠습니까?")) return;
+    const starter = p.starter?.[state.lang] ?? p.starter?.javascript ?? "";
+    els.codeInput.value = starter;
+    paintEditor();
+    saveCode();
+    logEvent("reset_code");
+  });
+
+  // Rail: AI
+  els.railAi.addEventListener("click", () => {
+    if (els.aiPanel.classList.contains("open")) closeAI();
+    else {
+      els.settingsPanel.classList.remove("open");
+      openAI();
+    }
+  });
+  els.aiClose.addEventListener("click", closeAI);
+  els.aiSend.addEventListener("click", sendAI);
+  els.aiInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendAI();
+  });
+
+  // Rail: settings
+  els.railSettings.addEventListener("click", () => {
+    els.aiPanel.classList.remove("open");
+    els.settingsPanel.classList.toggle("open");
+  });
+
+  document.querySelectorAll(".term-tab").forEach((t) => {
+    t.addEventListener("click", () => {
+      document
+        .querySelectorAll(".term-tab")
+        .forEach((x) => x.classList.remove("active"));
+      t.classList.add("active");
+    });
+  });
+
+  // Settings wiring
+  document.querySelectorAll("#stAccent .st-sw").forEach((s) => {
+    s.addEventListener("click", () => applyAccent(s.dataset.accent));
+  });
+  document.querySelectorAll("#stLang button").forEach((b) => {
+    b.addEventListener("click", () => {
+      applyLang(b.dataset.lang);
+      logEvent("change_language", { to: b.dataset.lang });
+    });
+  });
+
+  // Memo wiring
+  els.memoInput.addEventListener("input", autosaveMemo);
+  els.memoFinalBtn.addEventListener("click", finalSaveMemo);
+
+  // Export
+  els.exportBtn.addEventListener("click", () => {
+    const arr = JSON.parse(
+      localStorage.getItem(`cp_log_${session.userId}`) || "[]",
+    );
+    const jsonl = arr.map((r) => JSON.stringify(r)).join("\n");
+    const blob = new Blob([jsonl], {
+      type: "application/jsonl;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `chat-log-${chatSessionId}.jsonl`;
+    a.download = `${session.userId}_logs_${Date.now()}.jsonl`;
     a.click();
     URL.revokeObjectURL(url);
-  } catch (e) {
-    alert(`로그 다운로드 실패: ${e.message}`);
+  });
+
+  // Click outside settings to close
+  document.addEventListener("click", (e) => {
+    if (
+      els.settingsPanel.classList.contains("open") &&
+      !els.settingsPanel.contains(e.target) &&
+      !els.railSettings.contains(e.target)
+    ) {
+      els.settingsPanel.classList.remove("open");
+    }
+  });
+}
+
+// ────────────── Boot: login / resume ──────────────
+function showLogin() {
+  const overlay = document.createElement("div");
+  overlay.id = "loginOverlay";
+  overlay.innerHTML = `
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="orb"></span>
+        <span>CODING PLATFORM</span>
+      </div>
+      <h2>시작하기</h2>
+      <p>배정받은 사용자 ID를 입력하세요. 진행 상황은 서버에 기록되며, 재접속 시 풀던 문제부터 이어서 진행할 수 있습니다.</p>
+      <label>사용자 ID</label>
+      <input id="loginInput" placeholder="예: user001" autocomplete="username" />
+      <div class="login-err" id="loginErr"></div>
+      <button id="loginBtn">접속</button>
+      <p class="small">이전 문제를 해결해야 다음 문제로 이동할 수 있습니다. 되돌아가기는 제공되지 않습니다.</p>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector("#loginInput");
+  const err = overlay.querySelector("#loginErr");
+  const btn = overlay.querySelector("#loginBtn");
+  const prev = localStorage.getItem(SESSION_USER_KEY);
+  if (prev) input.value = prev;
+  input.focus();
+
+  const go = () => {
+    const uid = input.value.trim();
+    if (!uid) {
+      err.textContent = "ID를 입력하세요.";
+      return;
+    }
+    if (!/^[\w.-]{2,64}$/.test(uid)) {
+      err.textContent = "ID는 문자/숫자/._-만 사용 가능합니다.";
+      return;
+    }
+    localStorage.setItem(SESSION_USER_KEY, uid);
+    beginSession(uid);
+    overlay.remove();
+  };
+  btn.addEventListener("click", go);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") go();
+  });
+}
+
+function beginSession(uid) {
+  session.userId = uid;
+  session.sessionId = crypto.randomUUID();
+  session.startedAt = new Date().toISOString();
+
+  els.userChip.style.display = "inline-flex";
+  els.userChipName.textContent = uid;
+  els.exportBtn.style.display = "inline-block";
+
+  loadData();
+}
+
+function boot() {
+  cacheEls();
+  wireUp();
+
+  // Restore saved accent/lang
+  const savedAccent = localStorage.getItem("cp_accent");
+  if (savedAccent && ACCENTS[savedAccent]) applyAccent(savedAccent);
+  const savedLang = localStorage.getItem("cp_lang");
+  if (savedLang && ["javascript", "python", "cpp"].includes(savedLang)) {
+    state.lang = savedLang;
+  }
+  // default highlight seg active
+  document.querySelectorAll("#stLang button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.lang === state.lang);
+  });
+
+  // If URL provided a user_id, skip login for backward compat with older links
+  if (runArgs.userIdParam) {
+    beginSession(runArgs.userIdParam);
+  } else {
+    showLogin();
   }
 }
 
-els.editor.addEventListener("input", saveCode);
-els.runBtn.addEventListener("click", async () => {
-  saveCode();
-  els.result.textContent = "Running...";
-  els.result.textContent = await judge("run");
-});
-els.submitBtn.addEventListener("click", async () => {
-  saveCode();
-  els.result.textContent = "Submitting...";
-  els.result.textContent = await judge("submit");
-});
-els.nextProblemBtn.addEventListener("click", nextProblem);
-
-els.memoInput.addEventListener("input", autosaveMemo);
-els.memoFinalSaveBtn.addEventListener("click", finalSaveMemo);
-els.chatSendBtn.addEventListener("click", sendChat);
-els.downloadLogBtn.addEventListener("click", downloadLog);
-
-applyFixedMode();
-loadData();
+boot();

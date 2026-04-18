@@ -1,0 +1,22 @@
+# Cloudflare Tunnel config — save as ~/.cloudflared/config.yml
+# Replace <UUID>, <USERNAME>, and <HOSTNAME> with real values.
+#
+# Steps to obtain <UUID>:
+#   cloudflared tunnel login                       # opens browser, writes cert.pem
+#   cloudflared tunnel create judge-server         # prints "Tunnel ID: <UUID>"
+#                                                  # credentials JSON: ~/.cloudflared/<UUID>.json
+#   cloudflared tunnel route dns judge-server <HOSTNAME>
+#
+# Then start the tunnel (manually for testing):
+#   cloudflared tunnel --config ~/.cloudflared/config.yml run
+
+tunnel: <UUID>
+credentials-file: /Users/<USERNAME>/.cloudflared/<UUID>.json
+
+ingress:
+  - hostname: <HOSTNAME>            # e.g. judge.example.com
+    service: http://127.0.0.1:8000
+    originRequest:
+      connectTimeout: 10s
+      noTLSVerify: false
+  - service: http_status:404

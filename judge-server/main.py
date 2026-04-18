@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,6 +27,14 @@ LOGS_DIR = ASSISTANT_DIR / "logs"
 
 TIME_LIMIT_SEC = 2.0
 ASSISTANT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+SHARED_TOKEN = os.getenv("JUDGE_SHARED_TOKEN", "").strip()
+PUBLIC_PATHS = {"/health", "/"}
+
+_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+if _origins_env:
+    _allowed_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
+else:
+    _allowed_origins = ["*"]
 
 SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -34,11 +42,28 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 app = FastAPI(title="LeetCode Clone Judge Server")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def bearer_auth(request: Request, call_next):
+    # Preflight and public paths always pass.
+    if request.method == "OPTIONS" or request.url.path in PUBLIC_PATHS:
+        return await call_next(request)
+    if not SHARED_TOKEN:
+        # Auth disabled — keep legacy open behaviour for local dev.
+        return await call_next(request)
+    header = request.headers.get("authorization", "")
+    if not header.lower().startswith("bearer "):
+        return JSONResponse({"error": "Missing bearer token"}, status_code=401)
+    provided = header[7:].strip()
+    if provided != SHARED_TOKEN:
+        return JSONResponse({"error": "Invalid bearer token"}, status_code=401)
+    return await call_next(request)
 
 
 class JudgeRequest(BaseModel):

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(cp '/c/Users/HCIS/.claude/projects/C--Users-HCIS-Desktop-git-LeetcodeClone/57c6b5a9-4b00-47f2-bbbf-f99050f68c92/tool-results/webfetch-1776513706217-kdn33x.bin' /tmp/design.gz)",
+      "Read(//tmp/**)",
+      "Bash(cp \"/tmp/design/no-proof/project/Coding Platform.html\" \"C:\\\\Users\\\\HCIS\\\\Desktop\\\\git\\\\LeetcodeClone\\\\design-ref.html\")",
+      "Bash(cp \"/tmp/design/no-proof/project/app.js\" \"C:\\\\Users\\\\HCIS\\\\Desktop\\\\git\\\\LeetcodeClone\\\\design-app.js\")",
+      "Bash(curl -s -o /dev/null -w \"index.html: %{http_code}\\\\n\" http://localhost:8080/)",
+      "Bash(curl -s -o /dev/null -w \"styles.css: %{http_code}\\\\n\" http://localhost:8080/styles.css)",
+      "Bash(curl -s -o /dev/null -w \"app.js: %{http_code}\\\\n\" http://localhost:8080/app.js)",
+      "Bash(curl -s -o /dev/null -w \"problems.json: %{http_code}\\\\n\" http://localhost:8080/data/problems.json)",
+      "Bash(pkill -f \"http.server 8080\")"
+    ]
+  }
+}
