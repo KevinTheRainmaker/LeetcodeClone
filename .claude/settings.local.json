@@ -10,7 +10,15 @@
       "Bash(curl -s -o /dev/null -w \"styles.css: %{http_code}\\\\n\" http://localhost:8080/styles.css)",
       "Bash(curl -s -o /dev/null -w \"app.js: %{http_code}\\\\n\" http://localhost:8080/app.js)",
       "Bash(curl -s -o /dev/null -w \"problems.json: %{http_code}\\\\n\" http://localhost:8080/data/problems.json)",
-      "Bash(pkill -f \"http.server 8080\")"
+      "Bash(pkill -f \"http.server 8080\")",
+      "Bash(mkdir -p /tmp/design2)",
+      "Bash(cp C:/Users/HCIS/.claude/projects/C--Users-HCIS-Desktop-git-LeetcodeClone/57c6b5a9-4b00-47f2-bbbf-f99050f68c92/tool-results/webfetch-1776526498414-k7wsal.bin /tmp/design2.gz)",
+      "Bash(tar -xzf /tmp/design2.gz -C /tmp/design2)",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_close"
     ]
   }
 }

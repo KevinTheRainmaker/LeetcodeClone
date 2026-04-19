@@ -337,7 +337,7 @@ body {
 .workspace {
   grid-row: 2;
   display: grid;
-  grid-template-columns: 1fr 6px 1fr;
+  grid-template-columns: 1fr 1fr;
   overflow: hidden;
   position: relative;
 }
@@ -531,6 +531,7 @@ body {
   overflow: hidden;
   background: var(--bg);
   min-height: 0;
+  border-left: 1px solid var(--line);
 }
 
 .editor-wrap {
@@ -757,6 +758,10 @@ body {
   background: var(--bg);
   cursor: row-resize;
   position: relative;
+  user-select: none;
+}
+.vdivider:hover::after {
+  background: var(--accent);
 }
 .vdivider::before {
   content: "";
@@ -1242,7 +1247,7 @@ body {
 .tweaks {
   position: fixed;
   left: 66px;
-  bottom: 16px;
+  top: 120px;
   width: 260px;
   background: var(--panel);
   border: 1px solid var(--line-2);
@@ -1254,6 +1259,32 @@ body {
 }
 .tweaks.open {
   display: block;
+}
+
+/* Toast (Ctrl+S 저장 알림 등) */
+.app-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--r);
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.7);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.18s ease;
+  z-index: 200;
+}
+.app-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 .tweaks h4 {
   margin: 0 0 10px;

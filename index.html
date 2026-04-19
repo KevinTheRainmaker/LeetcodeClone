@@ -34,7 +34,6 @@
             Export
           </button>
           <span class="timer" id="timer">00:00:00</span>
-          <span class="help-circle" title="Help">?</span>
         </div>
       </header>
 
@@ -52,20 +51,7 @@
           </svg>
           <span class="lbl">DESC</span>
         </div>
-        <div class="rail-btn rail-ai" id="railAi" title="AI Assistant">
-          <span class="rail-orb"></span>
-          <span class="lbl">AI</span>
-        </div>
-
-        <div class="rail-probs-label">PROBS</div>
-        <div class="rail-probs" id="railProbs"></div>
-
-        <div
-          class="rail-btn"
-          id="railSettings"
-          title="Settings"
-          style="margin-top: auto"
-        >
+        <div class="rail-btn" id="railSettings" title="Settings">
           <svg viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="3" />
             <path
@@ -74,6 +60,19 @@
           </svg>
           <span class="lbl">SETTINGS</span>
         </div>
+
+        <div class="rail-probs-label">PROBS</div>
+        <div class="rail-probs" id="railProbs"></div>
+
+        <div
+          class="rail-btn rail-ai"
+          id="railAi"
+          title="AI Assistant"
+          style="margin-top: auto"
+        >
+          <span class="rail-orb"></span>
+          <span class="lbl">AI</span>
+        </div>
       </nav>
 
       <!-- Workspace -->
@@ -81,15 +80,9 @@
         <section class="panel-left">
           <div class="panel-header">
             <span>Description</span>
-            <span class="collapse" title="Collapse">«</span>
           </div>
           <div class="problem-scroll">
             <h1 class="p-title" id="pTitle">Loading…</h1>
-            <div class="p-meta">
-              <span class="p-tag medium" id="pDiff">medium</span>
-              <span class="p-tag" id="pSlug"></span>
-              <span class="p-tag" id="pFn"></span>
-            </div>
 
             <div class="p-setup">
               <strong>Setup:</strong> 좌측의 설명을 읽고 오른쪽 에디터에 풀이를
@@ -118,8 +111,6 @@
           </div>
         </section>
 
-        <div class="divider"></div>
-
         <section class="panel-right">
           <div class="editor-wrap">
             <div class="editor-tabs">
@@ -133,11 +124,6 @@
                   <svg viewBox="0 0 24 24">
                     <path d="M3 12a9 9 0 1 0 3-6.7" />
                     <path d="M3 4v5h5" />
-                  </svg>
-                </span>
-                <span class="icon-btn" id="formatBtn" title="Format">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M4 6h16M4 12h10M4 18h16" />
                   </svg>
                 </span>
               </div>
@@ -169,7 +155,6 @@
 
           <div class="terminal">
             <div class="term-tabs">
-              <div class="term-tab" data-term="output">OUTPUT</div>
               <div class="term-tab active" data-term="terminal">TERMINAL</div>
               <div class="term-right">
                 <span class="term-hint">
@@ -196,11 +181,7 @@
           </div>
 
           <div class="actions-row">
-            <div class="actions-left">
-              <button class="btn ghost" id="moreBtn" title="More actions">
-                ⋮ More
-              </button>
-            </div>
+            <div class="actions-left"></div>
             <div class="actions-right">
               <button class="btn" id="diffBtn" title="View diff vs starter">
                 View Diff

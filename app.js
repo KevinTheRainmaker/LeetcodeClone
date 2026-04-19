@@ -54,9 +54,6 @@ const els = {};
 function cacheEls() {
   const ids = [
     "pTitle",
-    "pDiff",
-    "pSlug",
-    "pFn",
     "pDesc",
     "pExamples",
     "qCounter",
@@ -85,8 +82,6 @@ function cacheEls() {
     "userChipName",
     "exportBtn",
     "resetBtn",
-    "formatBtn",
-    "moreBtn",
     "diffBtn",
     "minimap",
     "app",
@@ -293,10 +288,6 @@ function render() {
   if (!p) return;
 
   els.pTitle.textContent = `Task ${state.idx + 1}: ${p.title}`;
-  els.pDiff.textContent = p.difficulty || "medium";
-  els.pDiff.className = `p-tag ${p.difficulty || "medium"}`;
-  els.pSlug.textContent = p.slug || "";
-  els.pFn.textContent = p.functionName ? `fn: ${p.functionName}` : "";
 
   const descSafe = escapeHtml(p.description || "");
   els.pDesc.innerHTML = `<p>${descSafe}</p>`;
@@ -870,9 +861,15 @@ function wireUp() {
   });
 
   // Rail: tweaks
-  els.railSettings.addEventListener("click", () => {
+  els.railSettings.addEventListener("click", (e) => {
+    e.stopPropagation();
     els.aiPanel.classList.remove("open");
-    els.tweaks.classList.toggle("open");
+    if (els.tweaks.classList.contains("open")) {
+      els.tweaks.classList.remove("open");
+      return;
+    }
+    positionTweaksNextToSettings();
+    els.tweaks.classList.add("open");
   });
 
   document.querySelectorAll(".term-tab").forEach((t) => {
@@ -896,25 +893,6 @@ function wireUp() {
   });
   document.querySelectorAll("#twDensity button").forEach((b) => {
     b.addEventListener("click", () => applyDensity(b.dataset.density));
-  });
-
-  // Format button: shallow indent normalization (spaces; no external formatter)
-  els.formatBtn?.addEventListener("click", () => {
-    const normalized = els.codeInput.value
-      .replace(/\t/g, "    ")
-      .replace(/[ \t]+$/gm, "");
-    if (normalized !== els.codeInput.value) {
-      els.codeInput.value = normalized;
-      paintEditor();
-      saveCode();
-      logEvent("format_code");
-    }
-  });
-
-  // More: opens tweaks panel as a shortcut
-  els.moreBtn?.addEventListener("click", () => {
-    els.aiPanel.classList.remove("open");
-    els.tweaks.classList.toggle("open");
   });
 
   // Diff: show current code vs starter in the terminal
@@ -964,12 +942,48 @@ function wireUp() {
     if (
       els.tweaks.classList.contains("open") &&
       !els.tweaks.contains(e.target) &&
-      !els.railSettings.contains(e.target) &&
-      !els.moreBtn.contains(e.target)
+      !els.railSettings.contains(e.target)
     ) {
       els.tweaks.classList.remove("open");
     }
   });
+
+  // Ctrl/Cmd+S — explicit save with toast
+  document.addEventListener("keydown", (e) => {
+    const isSave = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s";
+    if (!isSave) return;
+    e.preventDefault();
+    if (!session.userId) return;
+    saveCode();
+    saveProgress(session.userId, { idx: state.idx });
+    logEvent("manual_save");
+    showToast("저장됨");
+  });
+}
+
+function positionTweaksNextToSettings() {
+  const btn = els.railSettings?.getBoundingClientRect();
+  if (!btn) return;
+  const margin = 8;
+  const top = Math.max(12, btn.top);
+  els.tweaks.style.top = `${top}px`;
+  els.tweaks.style.left = `${btn.right + margin}px`;
+  els.tweaks.style.bottom = "auto";
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  let el = document.getElementById("appToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "appToast";
+    el.className = "app-toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1400);
 }
 
 // ────────────── Boot: login / resume ──────────────
@@ -1048,12 +1062,58 @@ function boot() {
     b.classList.toggle("active", b.dataset.lang === state.lang);
   });
 
+  setupVdividerDrag();
+
   // If URL provided a user_id, skip login for backward compat with older links
   if (runArgs.userIdParam) {
     beginSession(runArgs.userIdParam);
   } else {
     showLogin();
   }
+}
+
+function setupVdividerDrag() {
+  const vdiv = document.querySelector(".vdivider");
+  const panel = document.querySelector(".panel-right");
+  if (!vdiv || !panel) return;
+
+  const MIN_EDITOR = 140;
+  const MIN_TERM = 120;
+  const ACTIONS_ROW_H = 44;
+  const HANDLE_H = 6;
+
+  const saved = parseInt(localStorage.getItem("termHeight") || "", 10);
+  if (!isNaN(saved) && saved >= MIN_TERM) {
+    panel.style.gridTemplateRows = `1fr ${HANDLE_H}px ${saved}px ${ACTIONS_ROW_H}px`;
+  }
+
+  let dragging = false;
+  vdiv.addEventListener("mousedown", (e) => {
+    dragging = true;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const rect = panel.getBoundingClientRect();
+    const offsetFromTop = e.clientY - rect.top;
+    const total = rect.height;
+    const maxTerm = total - MIN_EDITOR - HANDLE_H - ACTIONS_ROW_H;
+    let termH = total - offsetFromTop - HANDLE_H - ACTIONS_ROW_H;
+    termH = Math.max(MIN_TERM, Math.min(maxTerm, termH));
+    panel.style.gridTemplateRows = `1fr ${HANDLE_H}px ${termH}px ${ACTIONS_ROW_H}px`;
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    const match = panel.style.gridTemplateRows.match(/(\d+)px\s+\d+px\s*$/);
+    if (match) localStorage.setItem("termHeight", match[1]);
+  });
 }
 
 boot();
