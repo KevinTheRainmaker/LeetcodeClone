@@ -1096,7 +1096,7 @@ body {
 .ai-panel {
   position: fixed;
   left: 66px;
-  top: 60px;
+  bottom: 16px;
   width: 380px;
   max-height: 520px;
   background: var(--panel);
