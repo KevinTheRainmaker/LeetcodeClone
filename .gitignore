@@ -3,6 +3,8 @@ judge-server/.venv/
 __pycache__/
 *.pyc
 .DS_Store
-.env
-.env.local
 .vercel
+.env*
+.playwright-mcp
+*.png
+.design_v*
