@@ -84,10 +84,11 @@ class ChatRequest(BaseModel):
 class ClientLogRequest(BaseModel):
     ts: str
     userId: str
-    setId: int
-    mode: str
+    sessionId: Optional[str] = None
+    setId: Optional[Any] = None
+    language: Optional[str] = None
     problemId: Optional[int] = None
-    index: int = 0
+    problemIdx: Optional[int] = None
     action: str
     detail: Dict[str, Any] = {}
 
@@ -447,11 +448,23 @@ def assistant_logs(session_id: str):
     return lp.read_text(encoding="utf-8")
 
 
+_SAFE_ID = re.compile(r"[^A-Za-z0-9_\-]")
+
+
+def _safe_segment(s: str, default: str = "anon") -> str:
+    s = _SAFE_ID.sub("_", s or "")[:64]
+    return s or default
+
+
 @app.post("/client/log")
 def client_log(req: ClientLogRequest):
-    log_dir = Path(__file__).resolve().parent / "client_logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    fpath = log_dir / f"{req.userId}_set{req.setId}.jsonl"
+    log_root = Path(__file__).resolve().parent / "client_logs"
+    user_dir = log_root / _safe_segment(req.userId)
+    user_dir.mkdir(parents=True, exist_ok=True)
+    fname = (
+        f"p{req.problemId}.jsonl" if req.problemId is not None else "_meta.jsonl"
+    )
+    fpath = user_dir / fname
     with fpath.open("a", encoding="utf-8") as f:
         f.write(json.dumps(req.model_dump(), ensure_ascii=False) + "\n")
     return {"ok": True}

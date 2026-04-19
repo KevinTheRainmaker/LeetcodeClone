@@ -145,20 +145,37 @@ setInterval(flushLogs, 15_000);
 window.addEventListener("online", flushLogs);
 window.addEventListener("beforeunload", () => {
   if (!session.userId) return;
-  const row = {
+  const p = currentProblem();
+  const base = {
     ts: new Date().toISOString(),
     userId: session.userId,
     sessionId: session.sessionId,
     setId: runArgs.setId,
+    language: state.lang,
+    problemId: p?.id ?? null,
+    problemIdx: state.idx,
+  };
+  const beacons = [];
+  if (state.code && state.code !== lastLoggedCode) {
+    beacons.push({
+      ...base,
+      action: "code_edit",
+      detail: { codeLength: state.code.length, code: state.code },
+    });
+  }
+  beacons.push({
+    ...base,
     action: "session_end",
     detail: { problemIdx: state.idx, solvedCount: state.solved.size },
-  };
-  try {
-    navigator.sendBeacon(
-      LOG_ENDPOINT,
-      new Blob([JSON.stringify(row)], { type: "application/json" }),
-    );
-  } catch {}
+  });
+  for (const row of beacons) {
+    try {
+      navigator.sendBeacon(
+        LOG_ENDPOINT,
+        new Blob([JSON.stringify(row)], { type: "application/json" }),
+      );
+    } catch {}
+  }
 });
 
 // ────────────── Progress persistence ──────────────
@@ -560,6 +577,22 @@ function saveCode() {
   localStorage.setItem(key, state.code);
 }
 
+let codeEditLogTimer = null;
+let lastLoggedCode = null;
+function scheduleCodeEditLog() {
+  clearTimeout(codeEditLogTimer);
+  codeEditLogTimer = setTimeout(flushCodeEditLog, 2500);
+}
+function flushCodeEditLog() {
+  if (!session.userId) return;
+  if (state.code === lastLoggedCode) return;
+  lastLoggedCode = state.code;
+  logEvent("code_edit", {
+    codeLength: state.code.length,
+    code: state.code,
+  });
+}
+
 // ────────────── Terminal ──────────────
 function termClear() {
   els.termBody.innerHTML = `<div><span class="prompt">/usercode/session$</span><span class="term-cursor"></span></div>`;
@@ -595,7 +628,7 @@ async function judge(mode) {
   };
   logEvent(mode, {
     codeLength: state.code.length,
-    code: state.code.slice(0, 4000),
+    code: state.code,
   });
 
   try {
@@ -676,7 +709,7 @@ setInterval(() => {
 
 // ────────────── AI panel (OpenRouter via /api/chat proxy) ──────────────
 const OR_MODEL_KEY = "openrouter_model";
-const DEFAULT_MODEL = "anthropic/claude-3.5-haiku";
+const DEFAULT_MODEL = "anthropic/claude-sonnet-4.6";
 let aiHistory = [];
 
 function getModel() {
@@ -702,8 +735,12 @@ function addMsg(role, html) {
 
 function buildSystemPrompt() {
   const p = currentProblem();
-  const baseTone =
-    "You are a concise coding tutor. Prefer hints over full solutions. Provide full code only if the student explicitly asks.";
+  const baseTone = `
+  You are a concise coding tutor.Help the user solve coding problems and understand programming concepts.
+  Provide clear, practical explanations and guidance.
+  Stay focused on coding - related tasks(e.g., problem solving, debugging, algorithms, data structures, syntax).
+  If the user's request is not related to coding or programming, politely refuse and state that you can only help with coding-related questions.
+  `;
   if (!p) return baseTone;
   return [
     baseTone,
@@ -711,7 +748,6 @@ function buildSystemPrompt() {
     "Use short paragraphs and inline `code` where helpful.",
     "",
     `# Current Problem: ${p.title}`,
-    `Difficulty: ${p.difficulty}`,
     `Description: ${p.description}`,
     `Examples: ${JSON.stringify(p.examples || [])}`,
     `Language: ${state.lang}`,
@@ -815,6 +851,7 @@ function wireUp() {
   els.codeInput.addEventListener("input", () => {
     paintEditor();
     saveCode();
+    scheduleCodeEditLog();
   });
   els.codeInput.addEventListener("scroll", () => {
     els.codeHighlight.scrollTop = els.codeInput.scrollTop;
@@ -832,6 +869,7 @@ function wireUp() {
       els.codeInput.selectionStart = els.codeInput.selectionEnd = start + 4;
       paintEditor();
       saveCode();
+      scheduleCodeEditLog();
     }
   });
 
@@ -956,7 +994,12 @@ function wireUp() {
     if (!session.userId) return;
     saveCode();
     saveProgress(session.userId, { idx: state.idx });
-    logEvent("manual_save");
+    clearTimeout(codeEditLogTimer);
+    lastLoggedCode = null;
+    logEvent("manual_save", {
+      codeLength: state.code.length,
+      code: state.code,
+    });
     showToast("저장됨");
   });
 }
