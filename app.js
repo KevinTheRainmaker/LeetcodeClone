@@ -207,7 +207,7 @@ async function loadData() {
   state.testcases = t;
   state.sets = s.sets || [];
 
-  // Build queue: URL set= selects a single set; otherwise merge all sets (max 20)
+  // Build queue: URL set= selects a single set; otherwise use all problems
   let pool = [];
   if (runArgs.setId) {
     const match = state.sets.find(
@@ -223,7 +223,7 @@ async function loadData() {
     );
   }
   if (!pool.length) pool = state.problems.map((x) => x.id);
-  state.queue = pool.slice(0, 20);
+  state.queue = pool;
 
   // Resume progress
   const prog = getProgress(session.userId);
@@ -303,12 +303,10 @@ function updateNextGate() {
       : "Submit으로 모든 테스트를 통과해야 다음 문제로 이동할 수 있습니다";
 }
 
-function buildDescHtml(p) {
-  const images = p.images || [];
-  const desc = p.description || "";
+// [이미지N] 마커를 img 태그로 치환. 사용된 이미지 인덱스 Set 반환.
+function buildRichText(text, images) {
   const used = new Set();
-
-  const parts = desc.split(/(\[이미지\d+\])/g);
+  const parts = (text || "").split(/(\[이미지\d+\])/g);
   let html = "";
   for (const part of parts) {
     const m = part.match(/^\[이미지(\d+)\]$/);
@@ -323,14 +321,11 @@ function buildDescHtml(p) {
       html += escapeHtml(part).replace(/\n/g, "<br>");
     }
   }
+  return { html, used };
+}
 
-  // 마커로 참조되지 않은 이미지는 설명 아래에 순서대로 추가
-  for (let i = 0; i < images.length; i++) {
-    if (!used.has(i) && images[i]) {
-      html += `<img class="p-image" src="${encodeURI(images[i])}" alt="" onerror="this.style.display='none'">`;
-    }
-  }
-
+function buildDescHtml(p) {
+  const { html } = buildRichText(p.description, p.images || []);
   return `<p>${html}</p>`;
 }
 
@@ -346,11 +341,16 @@ function render() {
   (p.examples || []).forEach((ex, i) => {
     const box = document.createElement("div");
     box.className = "example";
-    box.innerHTML = `
+    let inner = `
       <div class="ex-label">Example ${i + 1}</div>
       <div class="ex-row"><span class="ex-k">Input</span><span class="ex-v">${escapeHtml(ex.input)}</span></div>
       <div class="ex-row"><span class="ex-k">Output</span><span class="ex-v">${escapeHtml(ex.output)}</span></div>
     `;
+    if (ex.explanation) {
+      const { html } = buildRichText(ex.explanation, p.images || []);
+      inner += `<div class="ex-explanation"><span class="ex-k">Explanation</span><div class="ex-explanation-body">${html}</div></div>`;
+    }
+    box.innerHTML = inner;
     els.pExamples.appendChild(box);
   });
 
@@ -907,17 +907,21 @@ function addMsg(role, html) {
 }
 
 function buildSystemPrompt() {
-  const baseTone = `
-  You are a concise coding tutor.Help the user solve coding problems and understand programming concepts.
-  Provide clear, practical explanations and guidance.
-  Stay focused on coding - related tasks(e.g., problem solving, debugging, algorithms, data structures, syntax).
-  If the user's request is not related to coding or programming, politely refuse and state that you can only help with coding-related questions.
-  `;
+  const p = currentProblem();
+  const problemTitle = p ? p.title : "현재 문제";
   return [
-    baseTone,
-    "Respond in the user's language (Korean if they write Korean).",
-    "Use short paragraphs and inline `code` where helpful.",
-    "The current problem (including any images) was provided as the first user message in this conversation — refer to it there.",
+    `You are a coding tutor strictly scoped to ONE problem: "${problemTitle}".`,
+    "The full problem statement (and any images) was provided as the first user message in this conversation.",
+    "",
+    "STRICT SCOPE RULES:",
+    `- You may ONLY discuss: the problem itself, its constraints, hints, approach, time/space complexity, code review, and debugging of the student's solution.`,
+    "- If the user asks about ANY other problem, topic, or task — even if it is a coding question — politely refuse in one sentence and redirect them back to the current problem.",
+    `- Example refusal (Korean): \"죄송합니다, 저는 현재 문제 '${problemTitle}'에 대해서만 도움드릴 수 있습니다.\"`,
+    "",
+    "RESPONSE STYLE:",
+    "- Respond in the user's language (Korean if they write Korean).",
+    "- Be concise. Use short paragraphs and inline `code` where helpful.",
+    "- Give hints before full solutions unless the student explicitly asks for the answer.",
     "",
     `Language: ${state.lang}`,
     `Student's current code:\n\`\`\`${state.lang}\n${state.code.slice(0, 2000)}\n\`\`\``,
@@ -980,13 +984,11 @@ const ACCENTS = {
   green: "oklch(0.78 0.15 150)",
   amber: "oklch(0.82 0.14 75)",
 };
+const LANG_ACCENT = { python: "cyan", java: "violet", cpp: "amber" };
+
 function applyAccent(name) {
   state.accent = name;
   document.documentElement.style.setProperty("--accent", ACCENTS[name]);
-  document.querySelectorAll("#twAccent .tw-sw").forEach((s) => {
-    s.classList.toggle("active", s.dataset.accent === name);
-  });
-  localStorage.setItem("cp_accent", name);
 }
 function applyLang(name) {
   state.lang = name;
@@ -994,6 +996,7 @@ function applyLang(name) {
     b.classList.toggle("active", b.dataset.lang === name);
   });
   localStorage.setItem("cp_lang", name);
+  applyAccent(LANG_ACCENT[name] || "cyan");
   if (state.queue.length) render();
 }
 function applyDensity(name) {
@@ -1003,6 +1006,19 @@ function applyDensity(name) {
     b.classList.toggle("active", b.dataset.density === name);
   });
   localStorage.setItem("cp_density", name);
+}
+function applyFontSize(name) {
+  const valid = ["small", "medium", "large"];
+  const fs = valid.includes(name) ? name : "small";
+  const app = els.app;
+  if (app) {
+    valid.forEach((v) => app.classList.remove(`fs-${v}`));
+    if (fs !== "small") app.classList.add(`fs-${fs}`);
+  }
+  document.querySelectorAll("#twFontSize button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.fs === fs);
+  });
+  localStorage.setItem("cp_fs", fs);
 }
 
 // ────────────── Wire up ──────────────
@@ -1093,9 +1109,6 @@ function wireUp() {
   });
 
   // Tweaks wiring
-  document.querySelectorAll("#twAccent .tw-sw").forEach((s) => {
-    s.addEventListener("click", () => applyAccent(s.dataset.accent));
-  });
   document.querySelectorAll("#twLang button").forEach((b) => {
     b.addEventListener("click", () => {
       applyLang(b.dataset.lang);
@@ -1104,6 +1117,9 @@ function wireUp() {
   });
   document.querySelectorAll("#twDensity button").forEach((b) => {
     b.addEventListener("click", () => applyDensity(b.dataset.density));
+  });
+  document.querySelectorAll("#twFontSize button").forEach((b) => {
+    b.addEventListener("click", () => applyFontSize(b.dataset.fs));
   });
 
   // Diff: show current code vs starter in the terminal
@@ -1265,15 +1281,15 @@ function boot() {
   cacheEls();
   wireUp();
 
-  // Restore saved accent/lang/density
-  const savedAccent = localStorage.getItem("cp_accent");
-  if (savedAccent && ACCENTS[savedAccent]) applyAccent(savedAccent);
+  // Restore saved lang/density; accent follows language automatically
   const savedLang = localStorage.getItem("cp_lang");
   if (savedLang && ["java", "python", "cpp"].includes(savedLang)) {
     state.lang = savedLang;
   }
+  applyAccent(LANG_ACCENT[state.lang] || "cyan");
   const savedDensity = localStorage.getItem("cp_density");
   applyDensity(savedDensity === "compact" ? "compact" : "comfortable");
+  applyFontSize(localStorage.getItem("cp_fs") || "small");
   document.querySelectorAll("#twLang button").forEach((b) => {
     b.classList.toggle("active", b.dataset.lang === state.lang);
   });

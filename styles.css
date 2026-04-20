@@ -532,6 +532,21 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
 }
+.example .ex-explanation {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.example .ex-explanation-body {
+  margin-top: 4px;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.example .ex-explanation .p-image {
+  margin: 8px 0;
+}
 
 /* ── Right panel: editor + terminal ── */
 .panel-right {
@@ -1385,4 +1400,37 @@ body {
 .app.compact .p-setup {
   font-size: 12.5px;
   padding: 8px 10px;
+}
+
+/* ─────────── Font size ─────────── */
+/* small = default (no overrides needed) */
+
+.app.fs-medium .code-input,
+.app.fs-medium .code-highlight,
+.app.fs-medium .gutter {
+  font-size: 14px;
+}
+.app.fs-medium .p-desc,
+.app.fs-medium .p-setup,
+.app.fs-medium .example {
+  font-size: 15.5px;
+}
+.app.fs-medium .ai-msg,
+.app.fs-medium .ai-input {
+  font-size: 15px;
+}
+
+.app.fs-large .code-input,
+.app.fs-large .code-highlight,
+.app.fs-large .gutter {
+  font-size: 16px;
+}
+.app.fs-large .p-desc,
+.app.fs-large .p-setup,
+.app.fs-large .example {
+  font-size: 17px;
+}
+.app.fs-large .ai-msg,
+.app.fs-large .ai-input {
+  font-size: 16px;
 }
