@@ -1,324 +1,410 @@
 [
   {
     "id": 1,
-    "slug": "two-sum",
-    "title": "Two Sum",
-    "difficulty": "easy",
-    "functionName": "twoSum",
-    "description": "정수 배열 nums와 정수 target이 주어질 때, 두 수의 합이 target이 되는 인덱스 두 개를 반환하세요.",
+    "slug": "number-of-rooms",
+    "title": "방의 갯수",
+    "difficulty": "medium",
+    "category": "graph",
+    "functionName": "numRooms",
+    "description": "원점(0,0)에서 시작해서 아래처럼 숫자가 적힌 방향으로 이동하며 선을 긋습니다.\n[이미지1]\nex) 1일때는 오른쪽 위로 이동\n\n그림을 그릴 때, 사방이 막히면 방하나로 샙니다.\n이동하는 방향이 담긴 배열 arrows가 매개변수로 주어질 때, 방의 갯수를 return 하도록 solution 함수를 작성하세요.\n\n제한사항\n배열 arrows의 크기는 1 이상 100,000 이하 입니다.\narrows의 원소는 0 이상 7 이하 입니다.\n방은 다른 방으로 둘러 싸여질 수 있습니다.\n\n입출력 예 설명\n[이미지2]\n(0,0) 부터 시작해서 6(왼쪽) 으로 3번 이동합니다. 그 이후 주어진 arrows 를 따라 그립니다.\n삼각형 (1), 큰 사각형(1), 평행사변형(1) = 3",
+    "images": [
+      "data/images/p1_1.png",
+      "data/images/p1_2.png"
+    ],
     "examples": [
       {
-        "input": "nums = [2,7,11,15], target = 9",
-        "output": "[0,1]"
-      },
-      {
-        "input": "nums = [3,2,4], target = 6",
-        "output": "[1,2]"
+        "input": "arrows: [6, 6, 6, 4, 4, 4, 2, 2, 2, 0, 0, 0, 1, 6, 5, 5, 3, 6, 0]",
+        "output": "3"
       }
     ],
     "starter": {
-      "javascript": "function twoSum(nums, target) {\n  // TODO\n}\n",
-      "python": "def two_sum(nums, target):\n    # TODO\n    pass\n",
-      "cpp": "vector<int> twoSum(vector<int>& nums, int target) {\n    // TODO\n}\n"
+      "python": "def num_rooms(grid):\n    # TODO\n    pass\n",
+      "java": "static int numRooms(int[][] grid):\n    # TODO\n    return 0;\n",
+      "cpp": "int numRooms(vector<vector<int>> grid):\n    # TODO\n    return 0;\n"
     }
   },
   {
     "id": 2,
-    "slug": "valid-parentheses",
-    "title": "Valid Parentheses",
+    "slug": "maximum-depth-of-binary-tree",
+    "title": "Maximum Depth of Binary Tree",
     "difficulty": "easy",
-    "functionName": "isValid",
-    "description": "문자열 s가 괄호 문자열일 때 유효한 괄호인지 판별하세요.",
+    "category": "tree",
+    "functionName": "maxDepth",
+    "description": "이진 트리의 레벨 순회(level-order) 결과가 정수 배열로 주어집니다. 빈 자식 노드는 -1로 표시됩니다. 이 트리의 최대 깊이(루트에서 가장 먼 리프까지의 노드 수)를 반환하세요.\n\n힌트: 배열 인덱스 i의 자식은 2*i+1, 2*i+2가 되는 완전 이진 트리가 아닙니다. 레벨 순회이므로 -1이 아닌 노드를 큐로 순회하면서 깊이를 세거나, 배열 자체에서 레벨별 노드 수를 추적하세요.",
     "examples": [
       {
-        "input": "s = \"()[]{}\"",
-        "output": "true"
+        "input": "levelOrder = [3, 9, 20, -1, -1, 15, 7]",
+        "output": "3"
       },
       {
-        "input": "s = \"(]\"",
-        "output": "false"
+        "input": "levelOrder = [1, -1, 2]",
+        "output": "2"
       }
     ],
     "starter": {
-      "javascript": "function isValid(s) {\n  // TODO\n}\n",
-      "python": "def is_valid(s):\n    # TODO\n    pass\n",
-      "cpp": "bool isValid(string s) {\n    // TODO\n}\n"
+      "python": "def max_depth(level_order):\n    # TODO\n    pass\n",
+      "java": "static int maxDepth(int[] levelOrder) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int maxDepth(vector<int> levelOrder) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 3,
-    "slug": "longest-substring-without-repeating-characters",
-    "title": "Longest Substring Without Repeating Characters",
-    "difficulty": "medium",
-    "functionName": "lengthOfLongestSubstring",
-    "description": "중복 문자가 없는 가장 긴 부분 문자열의 길이를 반환하세요.",
+    "slug": "middle-of-the-linked-list",
+    "title": "Middle of the Linked List",
+    "difficulty": "easy",
+    "category": "linked-list",
+    "functionName": "middleNode",
+    "description": "연결 리스트의 노드 값이 순서대로 담긴 배열 vals가 주어집니다. 중앙 노드의 값을 반환하세요. 노드 수가 짝수이면 두 중앙 중 뒤쪽을 반환합니다.\n\n원래 문제는 연결 리스트를 전제로 하지만, 여기서는 배열로 단순화되어 주어집니다. 투 포인터(slow/fast) 패턴을 배열에 적용해 보세요.",
     "examples": [
       {
-        "input": "s = \"abcabcbb\"",
+        "input": "vals = [1, 2, 3, 4, 5]",
         "output": "3"
       },
       {
-        "input": "s = \"bbbbb\"",
-        "output": "1"
+        "input": "vals = [1, 2, 3, 4, 5, 6]",
+        "output": "4"
       }
     ],
     "starter": {
-      "javascript": "function lengthOfLongestSubstring(s) {\n  // TODO\n}\n",
-      "python": "def length_of_longest_substring(s):\n    # TODO\n    pass\n",
-      "cpp": "int lengthOfLongestSubstring(string s) {\n    // TODO\n}\n"
+      "python": "def middle_node(vals):\n    # TODO\n    pass\n",
+      "java": "static int middleNode(int[] vals) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int middleNode(vector<int> vals) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 4,
-    "slug": "product-of-array-except-self",
-    "title": "Product of Array Except Self",
-    "difficulty": "medium",
-    "functionName": "productExceptSelf",
-    "description": "정수 배열 nums에서 각 위치 i에 대해 nums[i]를 제외한 나머지 원소들의 곱을 반환하세요.",
+    "slug": "contains-duplicate",
+    "title": "Contains Duplicate",
+    "difficulty": "easy",
+    "category": "hashmap",
+    "functionName": "containsDuplicate",
+    "description": "정수 배열 nums가 주어질 때, 어떤 값이 두 번 이상 등장하면 true, 모든 값이 서로 다르면 false를 반환하세요.\n\n해시셋을 사용한 단일 스캔으로 O(n) 시간에 해결할 수 있습니다.",
     "examples": [
       {
-        "input": "nums = [1,2,3,4]",
-        "output": "[24,12,8,6]"
+        "input": "nums = [1, 2, 3, 1]",
+        "output": "true"
       },
       {
-        "input": "nums = [-1,1,0,-3,3]",
-        "output": "[0,0,9,0,0]"
+        "input": "nums = [1, 2, 3, 4]",
+        "output": "false"
       }
     ],
     "starter": {
-      "javascript": "function productExceptSelf(nums) {\n  // TODO\n}\n",
-      "python": "def product_except_self(nums):\n    # TODO\n    pass\n",
-      "cpp": "vector<int> productExceptSelf(vector<int>& nums) {\n    // TODO\n}\n"
+      "python": "def contains_duplicate(nums):\n    # TODO\n    pass\n",
+      "java": "static boolean containsDuplicate(int[] nums) {\n    // TODO\n    return false;\n}\n",
+      "cpp": "bool containsDuplicate(vector<int> nums) {\n    // TODO\n    return false;\n}\n"
     }
   },
   {
     "id": 5,
-    "slug": "coin-change",
-    "title": "Coin Change",
-    "difficulty": "medium",
-    "functionName": "coinChange",
-    "description": "동전 배열 coins와 금액 amount가 주어질 때 amount를 만들기 위한 최소 동전 개수를 반환하세요. 불가능하면 -1을 반환하세요.",
+    "slug": "binary-search",
+    "title": "Binary Search",
+    "difficulty": "easy",
+    "category": "binary-search",
+    "functionName": "binarySearch",
+    "description": "오름차순으로 정렬된 정수 배열 nums와 정수 target이 주어집니다. target이 존재하면 해당 인덱스를, 없으면 -1을 반환하세요. 시간 복잡도는 O(log n)이어야 합니다.",
     "examples": [
       {
-        "input": "coins = [1,2,5], amount = 11",
-        "output": "3"
+        "input": "nums = [-1, 0, 3, 5, 9, 12], target = 9",
+        "output": "4"
       },
       {
-        "input": "coins = [2], amount = 3",
+        "input": "nums = [-1, 0, 3, 5, 9, 12], target = 2",
         "output": "-1"
       }
     ],
     "starter": {
-      "javascript": "function coinChange(coins, amount) {\n  // TODO\n}\n",
-      "python": "def coin_change(coins, amount):\n    # TODO\n    pass\n",
-      "cpp": "int coinChange(vector<int>& coins, int amount) {\n    // TODO\n}\n"
+      "python": "def binary_search(nums, target):\n    # TODO\n    pass\n",
+      "java": "static int binarySearch(int[] nums, int target) {\n    // TODO\n    return -1;\n}\n",
+      "cpp": "int binarySearch(vector<int> nums, int target) {\n    // TODO\n    return -1;\n}\n"
     }
   },
   {
     "id": 6,
-    "slug": "longest-consecutive-sequence",
-    "title": "Longest Consecutive Sequence",
+    "slug": "nth-ugly-number",
+    "title": "Ugly Number II",
     "difficulty": "medium",
-    "functionName": "longestConsecutive",
-    "description": "정수 배열 nums에서 연속된 수열의 가장 긴 길이를 반환하세요.",
+    "category": "heap",
+    "functionName": "nthUglyNumber",
+    "description": "ugly number는 소인수가 2, 3, 5뿐인 양의 정수입니다 (1 포함). n번째 ugly number를 반환하세요.\n\n대표적인 풀이는 최소 힙으로 지금까지 만든 ugly number에 2·3·5를 곱해가며 꺼내거나, 세 포인터 DP로 다음 ugly number를 순차 생성하는 것입니다.",
     "examples": [
       {
-        "input": "nums = [100,4,200,1,3,2]",
-        "output": "4"
+        "input": "n = 10",
+        "output": "12"
       },
       {
-        "input": "nums = [0,3,7,2,5,8,4,6,0,1]",
-        "output": "9"
+        "input": "n = 1",
+        "output": "1"
       }
     ],
     "starter": {
-      "javascript": "function longestConsecutive(nums) {\n  // TODO\n}\n",
-      "python": "def longest_consecutive(nums):\n    # TODO\n    pass\n",
-      "cpp": "int longestConsecutive(vector<int>& nums) {\n    // TODO\n}\n"
+      "python": "def nth_ugly_number(n):\n    # TODO\n    pass\n",
+      "java": "static int nthUglyNumber(int n) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int nthUglyNumber(int n) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 7,
-    "slug": "container-with-most-water",
-    "title": "Container With Most Water",
-    "difficulty": "medium",
-    "functionName": "maxArea",
-    "description": "높이 배열 height가 주어질 때 담을 수 있는 물의 최대 넓이를 반환하세요.",
+    "slug": "longest-common-prefix",
+    "title": "Longest Common Prefix",
+    "difficulty": "easy",
+    "category": "string",
+    "functionName": "longestCommonPrefix",
+    "description": "문자열 배열 strs가 주어질 때 모든 문자열에 공통으로 들어 있는 가장 긴 접두사(prefix)를 반환하세요. 공통 접두사가 없다면 빈 문자열 \"\"을 반환합니다.",
     "examples": [
       {
-        "input": "height = [1,8,6,2,5,4,8,3,7]",
-        "output": "49"
+        "input": "strs = [\"flower\", \"flow\", \"flight\"]",
+        "output": "\"fl\""
       },
       {
-        "input": "height = [1,1]",
-        "output": "1"
+        "input": "strs = [\"dog\", \"racecar\", \"car\"]",
+        "output": "\"\""
       }
     ],
     "starter": {
-      "javascript": "function maxArea(height) {\n  // TODO\n}\n",
-      "python": "def max_area(height):\n    # TODO\n    pass\n",
-      "cpp": "int maxArea(vector<int>& height) {\n    // TODO\n}\n"
+      "python": "def longest_common_prefix(strs):\n    # TODO\n    pass\n",
+      "java": "static String longestCommonPrefix(String[] strs) {\n    // TODO\n    return \"\";\n}\n",
+      "cpp": "string longestCommonPrefix(vector<string> strs) {\n    // TODO\n    return \"\";\n}\n"
     }
   },
   {
     "id": 8,
-    "slug": "search-in-rotated-sorted-array",
-    "title": "Search in Rotated Sorted Array",
-    "difficulty": "medium",
-    "functionName": "search",
-    "description": "회전된 정렬 배열 nums에서 target의 인덱스를 반환하세요. 없으면 -1을 반환하세요.",
+    "slug": "counting-words-with-a-given-prefix",
+    "title": "Counting Words With a Given Prefix",
+    "difficulty": "easy",
+    "category": "trie",
+    "functionName": "prefixCount",
+    "description": "문자열 배열 words와 문자열 pref가 주어집니다. pref를 접두사로 갖는 단어의 개수를 반환하세요.\n\n소규모라면 단순 비교로 충분하지만, 트라이(trie)로 접두사 인덱스를 구축하면 대량의 쿼리에도 효율적으로 답할 수 있습니다.",
     "examples": [
       {
-        "input": "nums = [4,5,6,7,0,1,2], target = 0",
-        "output": "4"
+        "input": "words = [\"pay\", \"attention\", \"practice\", \"attend\"], pref = \"at\"",
+        "output": "2"
       },
       {
-        "input": "nums = [4,5,6,7,0,1,2], target = 3",
-        "output": "-1"
-      }
-    ],
-    "starter": {
-      "javascript": "function search(nums, target) {\n  // TODO\n}\n",
-      "python": "def search(nums, target):\n    # TODO\n    pass\n",
-      "cpp": "int search(vector<int>& nums, int target) {\n    // TODO\n}\n"
-    }
-  },
-  {
-    "id": 9,
-    "slug": "find-minimum-in-rotated-sorted-array",
-    "title": "Find Minimum in Rotated Sorted Array",
-    "difficulty": "medium",
-    "functionName": "findMin",
-    "description": "중복 없는 회전된 정렬 배열 nums에서 최솟값을 반환하세요.",
-    "examples": [
-      {
-        "input": "nums = [3,4,5,1,2]",
-        "output": "1"
-      },
-      {
-        "input": "nums = [4,5,6,7,0,1,2]",
+        "input": "words = [\"leetcode\", \"win\", \"loops\", \"success\"], pref = \"code\"",
         "output": "0"
       }
     ],
     "starter": {
-      "javascript": "function findMin(nums) {\n  // TODO\n}\n",
-      "python": "def find_min(nums):\n    # TODO\n    pass\n",
-      "cpp": "int findMin(vector<int>& nums) {\n    // TODO\n}\n"
+      "python": "def prefix_count(words, pref):\n    # TODO\n    pass\n",
+      "java": "static int prefixCount(String[] words, String pref) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int prefixCount(vector<string> words, string pref) {\n    // TODO\n    return 0;\n}\n"
+    }
+  },
+  {
+    "id": 9,
+    "slug": "majority-element",
+    "title": "Majority Element",
+    "difficulty": "easy",
+    "category": "array",
+    "functionName": "majorityElement",
+    "description": "크기가 n인 정수 배열 nums가 주어집니다. 배열에서 n/2번 초과로 등장하는 원소(majority element)는 항상 존재한다고 가정할 때, 그 값을 반환하세요.\n\nBoyer-Moore Voting 알고리즘을 사용하면 O(n) 시간, O(1) 공간에 풀 수 있습니다.",
+    "examples": [
+      {
+        "input": "nums = [3, 2, 3]",
+        "output": "3"
+      },
+      {
+        "input": "nums = [2, 2, 1, 1, 1, 2, 2]",
+        "output": "2"
+      }
+    ],
+    "starter": {
+      "python": "def majority_element(nums):\n    # TODO\n    pass\n",
+      "java": "static int majorityElement(int[] nums) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int majorityElement(vector<int> nums) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 10,
-    "slug": "house-robber",
-    "title": "House Robber",
+    "slug": "evaluate-reverse-polish-notation",
+    "title": "Evaluate Reverse Polish Notation",
     "difficulty": "medium",
-    "functionName": "rob",
-    "description": "인접한 집을 동시에 털 수 없을 때, 훔칠 수 있는 최대 금액을 반환하세요.",
+    "category": "stack-queue",
+    "functionName": "evalRPN",
+    "description": "역폴란드 표기법(Reverse Polish Notation)으로 작성된 수식 토큰 배열 tokens가 주어집니다. 연산자는 \"+\", \"-\", \"*\", \"/\" 네 가지이며, 나눗셈은 0을 향한 정수 나눗셈(truncation toward zero)입니다. 최종 계산 결과를 정수로 반환하세요.\n\n스택을 사용해 피연산자를 쌓고 연산자를 만날 때 두 개를 꺼내 계산해 다시 push 하면 됩니다.",
     "examples": [
       {
-        "input": "nums = [1,2,3,1]",
-        "output": "4"
+        "input": "tokens = [\"2\", \"1\", \"+\", \"3\", \"*\"]",
+        "output": "9"
       },
       {
-        "input": "nums = [2,7,9,3,1]",
-        "output": "12"
+        "input": "tokens = [\"4\", \"13\", \"5\", \"/\", \"+\"]",
+        "output": "6"
       }
     ],
     "starter": {
-      "javascript": "function rob(nums) {\n  // TODO\n}\n",
-      "python": "def rob(nums):\n    # TODO\n    pass\n",
-      "cpp": "int rob(vector<int>& nums) {\n    // TODO\n}\n"
+      "python": "def eval_rpn(tokens):\n    # TODO\n    pass\n",
+      "java": "static int evalRPN(String[] tokens) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int evalRPN(vector<string> tokens) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 11,
-    "slug": "jump-game",
-    "title": "Jump Game",
+    "slug": "generate-parentheses",
+    "title": "Generate Parentheses",
     "difficulty": "medium",
-    "functionName": "canJump",
-    "description": "각 칸의 점프 가능 길이가 주어질 때 마지막 인덱스에 도달 가능한지 반환하세요.",
+    "category": "backtracking",
+    "functionName": "generateParenthesis",
+    "description": "n쌍의 괄호를 사용하여 만들 수 있는 모든 '유효한(valid) 괄호 조합'을 반환하세요.\n\n출력은 **사전식(lexicographic) 오름차순**으로 정렬된 문자열 배열이어야 합니다. 백트래킹에서 open 먼저 닫은 다음 close를 시도하면 자연스럽게 사전식 순서로 생성됩니다.",
     "examples": [
       {
-        "input": "nums = [2,3,1,1,4]",
-        "output": "true"
+        "input": "n = 3",
+        "output": "[\"((()))\", \"(()())\", \"(())()\", \"()(())\", \"()()()\"]"
       },
       {
-        "input": "nums = [3,2,1,0,4]",
-        "output": "false"
+        "input": "n = 1",
+        "output": "[\"()\"]"
       }
     ],
     "starter": {
-      "javascript": "function canJump(nums) {\n  // TODO\n}\n",
-      "python": "def can_jump(nums):\n    # TODO\n    pass\n",
-      "cpp": "bool canJump(vector<int>& nums) {\n    // TODO\n}\n"
+      "python": "def generate_parenthesis(n):\n    # TODO\n    pass\n",
+      "java": "static String[] generateParenthesis(int n) {\n    // TODO\n    return new String[]{};\n}\n",
+      "cpp": "vector<string> generateParenthesis(int n) {\n    // TODO\n    return {};\n}\n"
     }
   },
   {
     "id": 12,
-    "slug": "decode-ways",
-    "title": "Decode Ways",
+    "slug": "number-of-islands",
+    "title": "Number of Islands",
     "difficulty": "medium",
-    "functionName": "numDecodings",
-    "description": "숫자 문자열 s를 A=1 ... Z=26 규칙으로 해독할 수 있는 경우의 수를 반환하세요.",
+    "category": "graph",
+    "functionName": "numIslands",
+    "description": "m×n 크기의 2차원 격자 grid가 주어집니다. 각 셀은 \"1\"(땅) 또는 \"0\"(물)로 채워져 있습니다. 섬은 상/하/좌/우로 인접한 땅들의 연결 집합이며, 격자 바깥은 모두 물로 둘러싸여 있다고 가정합니다. 섬의 개수를 반환하세요.\n\nDFS 또는 BFS로 방문 처리하며 연결 컴포넌트를 세면 됩니다. (셀 값은 문자열 \"1\"/\"0\"입니다)",
     "examples": [
       {
-        "input": "s = \"12\"",
+        "input": "grid = [[\"1\",\"1\",\"0\"],[\"1\",\"0\",\"0\"],[\"0\",\"0\",\"1\"]]",
         "output": "2"
       },
       {
-        "input": "s = \"226\"",
-        "output": "3"
+        "input": "grid = [[\"1\",\"1\",\"1\"],[\"0\",\"1\",\"0\"],[\"1\",\"1\",\"1\"]]",
+        "output": "1"
       }
     ],
     "starter": {
-      "javascript": "function numDecodings(s) {\n  // TODO\n}\n",
-      "python": "def num_decodings(s):\n    # TODO\n    pass\n",
-      "cpp": "int numDecodings(string s) {\n    // TODO\n}\n"
+      "python": "def num_islands(grid):\n    # TODO\n    pass\n",
+      "java": "static int numIslands(String[][] grid) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int numIslands(vector<vector<string>> grid) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 13,
-    "slug": "word-break",
-    "title": "Word Break",
-    "difficulty": "medium",
-    "functionName": "wordBreak",
-    "description": "문자열 s가 wordDict의 단어들로 분리 가능한지 반환하세요.",
+    "slug": "single-number",
+    "title": "Single Number",
+    "difficulty": "easy",
+    "category": "bit-manipulation",
+    "functionName": "singleNumber",
+    "description": "정수 배열 nums에서 '하나만 한 번 나오고, 나머지 모든 값은 정확히 두 번' 나옵니다. 한 번만 나오는 값을 찾아 반환하세요.\n\n시간 O(n), 공간 O(1) 풀이가 요구됩니다. XOR 연산의 성질 a^a = 0, a^0 = a를 활용하세요.",
     "examples": [
       {
-        "input": "s = \"leetcode\", wordDict = [\"leet\",\"code\"]",
-        "output": "true"
+        "input": "nums = [2, 2, 1]",
+        "output": "1"
       },
       {
-        "input": "s = \"catsandog\", wordDict = [\"cats\",\"dog\",\"sand\",\"and\",\"cat\"]",
-        "output": "false"
+        "input": "nums = [4, 1, 2, 1, 2]",
+        "output": "4"
       }
     ],
     "starter": {
-      "javascript": "function wordBreak(s, wordDict) {\n  // TODO\n}\n",
-      "python": "def word_break(s, word_dict):\n    # TODO\n    pass\n",
-      "cpp": "bool wordBreak(string s, vector<string>& wordDict) {\n    // TODO\n}\n"
+      "python": "def single_number(nums):\n    # TODO\n    pass\n",
+      "java": "static int singleNumber(int[] nums) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int singleNumber(vector<int> nums) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 14,
-    "slug": "daily-temperatures",
-    "title": "Daily Temperatures",
+    "slug": "house-robber",
+    "title": "House Robber",
     "difficulty": "medium",
-    "functionName": "dailyTemperatures",
-    "description": "매일의 온도 배열 temperatures에 대해 더 따뜻한 날을 기다려야 하는 일수를 반환하세요.",
+    "category": "dynamic-programming",
+    "functionName": "rob",
+    "description": "일렬로 배치된 집 각각에 돈이 놓여 있습니다(배열 nums). 인접한 두 집은 동시에 털 수 없을 때, 훔칠 수 있는 최대 금액을 반환하세요.\n\ndp[i] = max(dp[i-1], dp[i-2] + nums[i]) 점화식을 사용하면 O(n) 시간, O(1) 공간으로 풀 수 있습니다.",
     "examples": [
       {
-        "input": "temperatures = [73,74,75,71,69,72,76,73]",
-        "output": "[1,1,4,2,1,1,0,0]"
+        "input": "nums = [1, 2, 3, 1]",
+        "output": "4"
       },
       {
-        "input": "temperatures = [30,40,50,60]",
-        "output": "[1,1,1,0]"
+        "input": "nums = [2, 7, 9, 3, 1]",
+        "output": "12"
       }
     ],
     "starter": {
-      "javascript": "function dailyTemperatures(temperatures) {\n  // TODO\n}\n",
-      "python": "def daily_temperatures(temperatures):\n    # TODO\n    pass\n",
-      "cpp": "vector<int> dailyTemperatures(vector<int>& temperatures) {\n    // TODO\n}\n"
+      "python": "def rob(nums):\n    # TODO\n    pass\n",
+      "java": "static int rob(int[] nums) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int rob(vector<int> nums) {\n    // TODO\n    return 0;\n}\n"
+    }
+  },
+  {
+    "id": 15,
+    "slug": "maximum-subarray",
+    "title": "Maximum Subarray",
+    "difficulty": "medium",
+    "category": "greedy",
+    "functionName": "maxSubArray",
+    "description": "정수 배열 nums가 주어집니다. 연속된 부분배열(최소 1개 원소) 중 합이 최대인 것의 합을 반환하세요.\n\nKadane's algorithm: 현재까지의 최대 부분합을 running_sum으로 유지하고 음수이면 리셋합니다. O(n) 시간.",
+    "examples": [
+      {
+        "input": "nums = [-2, 1, -3, 4, -1, 2, 1, -5, 4]",
+        "output": "6"
+      },
+      {
+        "input": "nums = [1]",
+        "output": "1"
+      }
+    ],
+    "starter": {
+      "python": "def max_sub_array(nums):\n    # TODO\n    pass\n",
+      "java": "static int maxSubArray(int[] nums) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int maxSubArray(vector<int> nums) {\n    // TODO\n    return 0;\n}\n"
+    }
+  },
+  {
+    "id": 16,
+    "slug": "palindrome-number",
+    "title": "Palindrome Number",
+    "difficulty": "easy",
+    "category": "math",
+    "functionName": "isPalindrome",
+    "description": "정수 x가 주어집니다. 10진수 표기가 앞뒤 어느 쪽에서 읽어도 같은 회문(palindrome)인지 판별하세요. 음수는 부호 때문에 항상 회문이 아닙니다.\n\n문자열 변환 없이, 숫자의 뒷부분을 뒤집어 앞부분과 비교하는 방식으로 O(log10 x)에 풀 수 있습니다.",
+    "examples": [
+      {
+        "input": "x = 121",
+        "output": "true"
+      },
+      {
+        "input": "x = -121",
+        "output": "false"
+      }
+    ],
+    "starter": {
+      "python": "def is_palindrome(x):\n    # TODO\n    pass\n",
+      "java": "static boolean isPalindrome(int x) {\n    // TODO\n    return false;\n}\n",
+      "cpp": "bool isPalindrome(int x) {\n    // TODO\n    return false;\n}\n"
+    }
+  },
+  {
+    "id": 17,
+    "slug": "range-sum-queries",
+    "title": "Range Sum Queries",
+    "difficulty": "medium",
+    "category": "segment-tree",
+    "functionName": "rangeSum",
+    "description": "정수 배열 nums와 쿼리 배열 queries가 주어집니다. 각 쿼리는 [l, r] 형태이며 nums[l..r](양 끝 포함)의 합을 의미합니다. 모든 쿼리의 결과를 순서대로 담은 배열을 반환하세요.\n\n쿼리가 많을 경우 세그먼트 트리(또는 prefix-sum)로 각 쿼리를 O(log n) 또는 O(1)에 답할 수 있습니다. 입력 배열은 갱신되지 않으므로 prefix-sum만으로도 충분합니다.",
+    "examples": [
+      {
+        "input": "nums = [1, 2, 3, 4, 5], queries = [[0, 2], [1, 3], [0, 4]]",
+        "output": "[6, 9, 15]"
+      },
+      {
+        "input": "nums = [-1, 0, 3, -2, 5], queries = [[0, 4], [2, 2]]",
+        "output": "[5, 3]"
+      }
+    ],
+    "starter": {
+      "python": "def range_sum(nums, queries):\n    # TODO\n    pass\n",
+      "java": "static int[] rangeSum(int[] nums, int[][] queries) {\n    // TODO\n    return new int[]{};\n}\n",
+      "cpp": "vector<int> rangeSum(vector<int> nums, vector<vector<int>> queries) {\n    // TODO\n    return {};\n}\n"
     }
   }
 ]

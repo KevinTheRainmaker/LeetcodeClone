@@ -14,13 +14,17 @@ Vercel에 배포된 프론트가 안전하게 호출할 수 있게 만듭니다.
 xcode-select --install
 # → GUI 팝업에서 "설치" 클릭. 5~10분 소요.
 
-# Node.js(JS 채점) + cloudflared(터널)
+# Java(JDK 17+, 채점용) + cloudflared(터널)
 brew update
-brew install node cloudflared
+brew install openjdk@17 cloudflared
+# Homebrew 안내에 따라 JAVA_HOME / PATH 설정:
+#   echo 'export PATH="/opt/homebrew/opt/openjdk@17/bin:$PATH"' >> ~/.zshrc
+#   echo 'export JAVA_HOME="/opt/homebrew/opt/openjdk@17"' >> ~/.zshrc
 
 # 버전 확인
 clang++ --version   # Apple clang 14 이상
-node --version      # v20 권장
+javac --version     # 17+
+java --version      # 17+
 python3 --version   # 3.11 권장
 cloudflared --version
 ```
@@ -87,7 +91,7 @@ curl http://127.0.0.1:8000/health        # {"status":"ok"}
 curl -X POST http://127.0.0.1:8000/judge \
      -H "Authorization: Bearer $TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"problemId":1,"language":"javascript","code":"function solve(){}","mode":"run"}'
+     -d '{"problemId":1,"language":"java","code":"static int maxDepth(int[] levelOrder){return 0;}","mode":"run"}'
 ```
 
 401이 나오면 토큰이 틀린 것, 403/404는 라우팅 문제, 200이면 정상.
@@ -143,7 +147,7 @@ curl https://judge.example.com/health                       # 토큰 불필요
 curl -X POST https://judge.example.com/judge \
      -H "Authorization: Bearer <토큰>" \
      -H "Content-Type: application/json" \
-     -d '{"problemId":1,"language":"javascript","code":"function solve(){}","mode":"run"}'
+     -d '{"problemId":1,"language":"java","code":"static int maxDepth(int[] levelOrder){return 0;}","mode":"run"}'
 ```
 
 ### 5-D. launchd로 터널 상시 실행

@@ -161,6 +161,48 @@ def cpp_type(v: Any) -> str:
     raise ValueError(f"Unsupported C++ type: {type(v)}")
 
 
+def java_base_and_dims(v: Any):
+    if isinstance(v, list):
+        if not v:
+            return ("int", 1)
+        base, dims = java_base_and_dims(v[0])
+        return (base, dims + 1)
+    if isinstance(v, bool):
+        return ("boolean", 0)
+    if isinstance(v, int):
+        return ("int", 0)
+    if isinstance(v, float):
+        return ("double", 0)
+    if isinstance(v, str):
+        return ("String", 0)
+    raise ValueError(f"Unsupported Java type: {type(v)}")
+
+
+def java_type_str(v: Any) -> str:
+    base, dims = java_base_and_dims(v)
+    return base + "[]" * dims
+
+
+def _java_lit_inner(v: Any) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, float):
+        return str(v)
+    if isinstance(v, str):
+        return json.dumps(v, ensure_ascii=False)
+    if isinstance(v, list):
+        return "{" + ", ".join(_java_lit_inner(x) for x in v) + "}"
+    raise ValueError(f"Unsupported Java literal type: {type(v)}")
+
+
+def java_literal(v: Any) -> str:
+    if isinstance(v, list):
+        return f"new {java_type_str(v)}" + _java_lit_inner(v)
+    return _java_lit_inner(v)
+
+
 def run_python(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], work: Path):
     fn_name = problem.get("pythonFunctionName") or to_snake(problem.get("functionName", "solve"))
     payload = [{"index": i + 1, "input": tc["input"], "expected": tc["expected"]} for i, tc in enumerate(cases)]
@@ -171,14 +213,126 @@ def run_python(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], 
     return parse_line_results(proc, cases)
 
 
-def run_javascript(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], work: Path):
+JAVA_HELPERS = r"""
+    static String toJson(Object v) {
+        if (v == null) return "null";
+        if (v instanceof Boolean) return v.toString();
+        if (v instanceof Number) return v.toString();
+        if (v instanceof String) return jsonStr((String) v);
+        if (v instanceof int[]) {
+            int[] a = (int[]) v;
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(","); sb.append(a[i]); }
+            sb.append("]"); return sb.toString();
+        }
+        if (v instanceof long[]) {
+            long[] a = (long[]) v;
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(","); sb.append(a[i]); }
+            sb.append("]"); return sb.toString();
+        }
+        if (v instanceof double[]) {
+            double[] a = (double[]) v;
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(","); sb.append(a[i]); }
+            sb.append("]"); return sb.toString();
+        }
+        if (v instanceof boolean[]) {
+            boolean[] a = (boolean[]) v;
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(","); sb.append(a[i]); }
+            sb.append("]"); return sb.toString();
+        }
+        if (v instanceof Object[]) {
+            Object[] a = (Object[]) v;
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < a.length; i++) { if (i > 0) sb.append(","); sb.append(toJson(a[i])); }
+            sb.append("]"); return sb.toString();
+        }
+        return jsonStr(v.toString());
+    }
+
+    static String jsonStr(String s) {
+        if (s == null) return "null";
+        StringBuilder sb = new StringBuilder("\"");
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\\') sb.append("\\\\");
+            else if (c == '"') sb.append("\\\"");
+            else if (c == '\n') sb.append("\\n");
+            else if (c == '\r') sb.append("\\r");
+            else if (c == '\t') sb.append("\\t");
+            else if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
+            else sb.append(c);
+        }
+        sb.append("\"");
+        return sb.toString();
+    }
+"""
+
+
+def run_java(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], work: Path):
     fn_name = problem.get("functionName", "solve")
-    payload = [{"index": i + 1, "input": tc["input"], "expected": tc["expected"]} for i, tc in enumerate(cases)]
-    runner = f'''const FN_NAME = {json.dumps(fn_name)};\nconst __getFn = new Function(`\n{code}\nreturn (typeof ${{FN_NAME}} === 'function') ? ${{FN_NAME}} : null;\n`);\nconst fn = __getFn();\nif (typeof fn !== 'function') {{\n  console.log(JSON.stringify({{fatal: `Function '${{FN_NAME}}' not found.`}}));\n  process.exit(0);\n}}\nconst CASES = {json.dumps(payload, ensure_ascii=False)};\nfor (const c of CASES) {{\n  try {{\n    const actual = fn(...c.input);\n    const ok = JSON.stringify(actual) === JSON.stringify(c.expected);\n    console.log(JSON.stringify({{index: c.index, ok, actual}}));\n  }} catch (e) {{\n    console.log(JSON.stringify({{index: c.index, ok: false, error: String(e.message || e)}}));\n  }}\n}}\n'''
-    script = work / "run.mjs"
-    script.write_text(runner, encoding="utf-8")
-    proc = run_command(["node", str(script)], cwd=work)
-    return parse_line_results(proc, cases)
+
+    lines: List[str] = [
+        "import java.util.*;",
+        "",
+        "public class Main {",
+        "",
+        code,
+        "",
+        "    public static void main(String[] args) {",
+    ]
+    for idx in range(1, len(cases) + 1):
+        lines.append(f"        runCase{idx}();")
+    lines.append("    }")
+    lines.append("")
+
+    for idx, tc in enumerate(cases, start=1):
+        lines.append(f"    static void runCase{idx}() {{")
+        lines.append("        try {")
+        arg_names = []
+        for j, arg in enumerate(tc["input"]):
+            t = java_type_str(arg)
+            name = f"arg{j}"
+            arg_names.append(name)
+            lines.append(f"            {t} {name} = {java_literal(arg)};")
+
+        exp_type = java_type_str(tc["expected"])
+        lines.append(f"            {exp_type} expected = {java_literal(tc['expected'])};")
+        args = ", ".join(arg_names)
+        lines.append(f"            {exp_type} actual = {fn_name}({args});")
+        lines.append("            boolean ok = java.util.Objects.deepEquals(actual, expected);")
+        lines.append(
+            f'            System.out.println("{{\\"index\\":{idx},\\"ok\\":" + (ok ? "true" : "false") + ",\\"actual\\":" + toJson(actual) + "}}");'
+        )
+        lines.append("        } catch (Throwable e) {")
+        lines.append(
+            f'            System.out.println("{{\\"index\\":{idx},\\"ok\\":false,\\"error\\":" + jsonStr(String.valueOf(e)) + "}}");'
+        )
+        lines.append("        }")
+        lines.append("    }")
+        lines.append("")
+
+    lines.append(JAVA_HELPERS)
+    lines.append("}")
+
+    src = work / "Main.java"
+    src.write_text("\n".join(lines), encoding="utf-8")
+
+    compile_proc = run_command(["javac", str(src)], cwd=work, timeout=15.0)
+    if compile_proc.returncode != 0:
+        return {
+            "status": "Compile Error",
+            "passed": 0,
+            "total": len(cases),
+            "caseResults": [],
+            "stderr": (compile_proc.stderr or "").strip()[:4000],
+            "runtimeMs": 0,
+        }
+
+    run_proc = run_command(["java", "-cp", str(work), "Main"], cwd=work)
+    return parse_line_results(run_proc, cases)
 
 
 def run_cpp(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], work: Path):
@@ -361,7 +515,7 @@ def health():
 
 @app.post("/judge")
 def judge(req: JudgeRequest):
-    if req.language not in {"javascript", "python", "cpp"}:
+    if req.language not in {"java", "python", "cpp"}:
         raise HTTPException(status_code=400, detail="Unsupported language")
     if req.mode not in {"run", "submit"}:
         raise HTTPException(status_code=400, detail="mode must be run|submit")
@@ -379,7 +533,7 @@ def judge(req: JudgeRequest):
         elif req.language == "cpp":
             out = run_cpp(problem, req.code, cases, work)
         else:
-            out = run_javascript(problem, req.code, cases, work)
+            out = run_java(problem, req.code, cases, work)
     except subprocess.TimeoutExpired:
         out = {
             "status": "Time Limit Exceeded",

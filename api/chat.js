@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   const model =
     (typeof body.model === "string" && body.model.trim()) ||
     process.env.OPENROUTER_MODEL ||
-    "anthropic/claude-3.5-haiku";
+    "anthropic/claude-sonnet-4.6";
 
   const temperature =
     typeof body.temperature === "number" ? body.temperature : 0.6;

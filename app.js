@@ -23,7 +23,7 @@ const runArgs = {
   userIdParam: PARAMS.get("user_id") || null,
   language: (PARAMS.get("lang") || "python").toLowerCase(),
 };
-if (!["javascript", "python", "cpp"].includes(runArgs.language)) {
+if (!["java", "python", "cpp"].includes(runArgs.language)) {
   runArgs.language = "python";
 }
 
@@ -48,6 +48,8 @@ const state = {
   runResult: null,
   accent: "cyan",
   density: "comfortable",
+  chatInitialized: false,
+  lastSeedProblemId: null,
 };
 
 const els = {};
@@ -77,6 +79,7 @@ function cacheEls() {
     "aiInput",
     "aiSend",
     "aiModel",
+    "aiResize",
     "tweaks",
     "userChip",
     "userChipName",
@@ -300,14 +303,44 @@ function updateNextGate() {
       : "Submit으로 모든 테스트를 통과해야 다음 문제로 이동할 수 있습니다";
 }
 
+function buildDescHtml(p) {
+  const images = p.images || [];
+  const desc = p.description || "";
+  const used = new Set();
+
+  const parts = desc.split(/(\[이미지\d+\])/g);
+  let html = "";
+  for (const part of parts) {
+    const m = part.match(/^\[이미지(\d+)\]$/);
+    if (m) {
+      const idx = parseInt(m[1], 10) - 1;
+      const src = (images[idx] || "").trim();
+      if (src) {
+        used.add(idx);
+        html += `<img class="p-image" src="${encodeURI(src)}" alt="" onerror="this.style.display='none'">`;
+      }
+    } else {
+      html += escapeHtml(part).replace(/\n/g, "<br>");
+    }
+  }
+
+  // 마커로 참조되지 않은 이미지는 설명 아래에 순서대로 추가
+  for (let i = 0; i < images.length; i++) {
+    if (!used.has(i) && images[i]) {
+      html += `<img class="p-image" src="${encodeURI(images[i])}" alt="" onerror="this.style.display='none'">`;
+    }
+  }
+
+  return `<p>${html}</p>`;
+}
+
 function render() {
   const p = currentProblem();
   if (!p) return;
 
   els.pTitle.textContent = `Task ${state.idx + 1}: ${p.title}`;
 
-  const descSafe = escapeHtml(p.description || "");
-  els.pDesc.innerHTML = `<p>${descSafe}</p>`;
+  els.pDesc.innerHTML = buildDescHtml(p);
 
   els.pExamples.innerHTML = "";
   (p.examples || []).forEach((ex, i) => {
@@ -326,14 +359,14 @@ function render() {
   renderProbList();
   updateNextGate();
 
-  const ext = { python: "py", javascript: "js", cpp: "cpp" }[state.lang];
+  const ext = { python: "py", java: "java", cpp: "cpp" }[state.lang];
   const fnKebab = (p.slug || "solution").replace(/-/g, "_");
   els.fileName.textContent = `${fnKebab}.${ext}`;
   els.langChip.textContent =
     state.lang === "python"
       ? "Python 3"
-      : state.lang === "javascript"
-        ? "JavaScript · Node"
+      : state.lang === "java"
+        ? "Java"
         : "C++ · g++";
 
   // Load saved code for this user/problem/language, else starter
@@ -342,10 +375,18 @@ function render() {
   state.code =
     saved ??
     p.starter?.[state.lang] ??
-    p.starter?.javascript ??
+    p.starter?.python ??
     "// starter missing";
   els.codeInput.value = state.code;
   paintEditor();
+
+  if (state.lastSeedProblemId !== p.id) {
+    aiHistory = [];
+    if (els.aiBody) els.aiBody.innerHTML = "";
+    state.chatInitialized = false;
+    state.lastSeedProblemId = p.id;
+    if (els.aiPanel?.classList.contains("open")) initChatSession();
+  }
 }
 
 // ────────────── Syntax highlight (overlay) ──────────────
@@ -382,36 +423,54 @@ const KW = {
     "self",
     "print",
   ]),
-  javascript: new Set([
-    "function",
-    "const",
-    "let",
-    "var",
+  java: new Set([
+    "class",
+    "public",
+    "private",
+    "protected",
+    "static",
+    "final",
+    "abstract",
+    "void",
+    "int",
+    "long",
+    "short",
+    "byte",
+    "char",
+    "float",
+    "double",
+    "boolean",
+    "String",
     "return",
     "if",
     "else",
     "for",
     "while",
-    "in",
-    "of",
+    "do",
+    "switch",
+    "case",
+    "break",
+    "continue",
     "new",
-    "class",
     "this",
+    "super",
     "null",
     "true",
     "false",
-    "undefined",
-    "import",
-    "from",
-    "export",
-    "async",
-    "await",
     "try",
     "catch",
     "finally",
     "throw",
-    "typeof",
+    "throws",
+    "import",
+    "package",
+    "extends",
+    "implements",
+    "interface",
+    "enum",
     "instanceof",
+    "synchronized",
+    "volatile",
   ]),
   cpp: new Set([
     "int",
@@ -552,7 +611,7 @@ function paintEditor() {
         if (trimmed.startsWith(commentMarker)) cls = "com";
         else if (/["']/.test(trimmed)) cls = "str";
         else if (
-          /\b(def|function|return|class|if|else|for|while|import|const|let|var|public|private)\b/.test(
+          /\b(def|return|class|if|else|for|while|import|public|private|static|void|int|boolean)\b/.test(
             trimmed,
           )
         )
@@ -710,6 +769,7 @@ setInterval(() => {
 // ────────────── AI panel (OpenRouter via /api/chat proxy) ──────────────
 const OR_MODEL_KEY = "openrouter_model";
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4.6";
+const GREETING = "안녕하세요, 이 문제를 풀기 위해 도움이 필요한가요?";
 let aiHistory = [];
 
 function getModel() {
@@ -719,10 +779,123 @@ function getModel() {
 function openAI() {
   els.aiPanel.classList.add("open");
   els.aiModel.textContent = getModel();
+  initChatSession();
   setTimeout(() => els.aiInput.focus(), 50);
 }
 function closeAI() {
   els.aiPanel.classList.remove("open");
+}
+
+function initAiResize() {
+  const handle = els.aiResize;
+  const panel = els.aiPanel;
+  if (!handle || !panel) return;
+
+  const MIN_W = 320;
+  const MIN_H = 280;
+  const KEY = "cp_ai_size";
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved && typeof saved.w === "number" && typeof saved.h === "number") {
+      panel.style.width = saved.w + "px";
+      panel.style.height = saved.h + "px";
+      panel.style.maxHeight = "none";
+    }
+  } catch (_) {
+    /* ignore */
+  }
+
+  let sx = 0,
+    sy = 0,
+    sw = 0,
+    sh = 0;
+
+  function onMove(ev) {
+    const dx = ev.clientX - sx;
+    const dy = sy - ev.clientY;
+    const maxW = Math.min(window.innerWidth - 80, 960);
+    const maxH = Math.min(window.innerHeight - 32, 900);
+    const w = Math.max(MIN_W, Math.min(maxW, sw + dx));
+    const h = Math.max(MIN_H, Math.min(maxH, sh + dy));
+    panel.style.width = w + "px";
+    panel.style.height = h + "px";
+    panel.style.maxHeight = "none";
+  }
+
+  function onUp() {
+    window.removeEventListener("pointermove", onMove);
+    document.body.style.userSelect = "";
+    const rect = panel.getBoundingClientRect();
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        w: Math.round(rect.width),
+        h: Math.round(rect.height),
+      }),
+    );
+  }
+
+  handle.addEventListener("pointerdown", (ev) => {
+    ev.preventDefault();
+    sx = ev.clientX;
+    sy = ev.clientY;
+    const rect = panel.getBoundingClientRect();
+    sw = rect.width;
+    sh = rect.height;
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+  });
+}
+
+async function fetchAsDataUrl(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  return await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
+async function initChatSession() {
+  if (state.chatInitialized) return;
+  const p = currentProblem();
+  if (!p) return;
+  state.chatInitialized = true;
+
+  const imageBlocks = [];
+  for (const path of p.images || []) {
+    try {
+      const dataUrl = await fetchAsDataUrl(path);
+      imageBlocks.push({ type: "image_url", image_url: { url: dataUrl } });
+    } catch (_) {
+      // 이미지 로드 실패 시 스킵 (없는 것으로 간주)
+    }
+  }
+
+  const examplesText = (p.examples || [])
+    .map(
+      (ex, i) =>
+        `Example ${i + 1}\n  Input: ${ex.input}\n  Output: ${ex.output}`,
+    )
+    .join("\n\n");
+  const problemText =
+    `# Problem: ${p.title}\n\n` +
+    `${p.description || ""}\n\n` +
+    (examplesText ? `Examples:\n${examplesText}` : "");
+
+  const userContent = imageBlocks.length
+    ? [{ type: "text", text: problemText }, ...imageBlocks]
+    : problemText;
+
+  aiHistory.push({ role: "user", content: userContent });
+  aiHistory.push({ role: "assistant", content: GREETING });
+
+  addMsg("bot", renderMarkdown(GREETING));
 }
 function addMsg(role, html) {
   const d = document.createElement("div");
@@ -734,22 +907,18 @@ function addMsg(role, html) {
 }
 
 function buildSystemPrompt() {
-  const p = currentProblem();
   const baseTone = `
   You are a concise coding tutor.Help the user solve coding problems and understand programming concepts.
   Provide clear, practical explanations and guidance.
   Stay focused on coding - related tasks(e.g., problem solving, debugging, algorithms, data structures, syntax).
   If the user's request is not related to coding or programming, politely refuse and state that you can only help with coding-related questions.
   `;
-  if (!p) return baseTone;
   return [
     baseTone,
     "Respond in the user's language (Korean if they write Korean).",
     "Use short paragraphs and inline `code` where helpful.",
+    "The current problem (including any images) was provided as the first user message in this conversation — refer to it there.",
     "",
-    `# Current Problem: ${p.title}`,
-    `Description: ${p.description}`,
-    `Examples: ${JSON.stringify(p.examples || [])}`,
     `Language: ${state.lang}`,
     `Student's current code:\n\`\`\`${state.lang}\n${state.code.slice(0, 2000)}\n\`\`\``,
   ].join("\n");
@@ -774,6 +943,9 @@ async function sendAI() {
 
   const pending = addMsg("bot", `<em class="term-muted">생각 중…</em>`);
   try {
+    const head = aiHistory.slice(0, 2);
+    const tail = aiHistory.slice(Math.max(2, aiHistory.length - 10));
+    const compact = [...head, ...tail];
     const res = await fetch(CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -781,7 +953,7 @@ async function sendAI() {
         model: getModel(),
         messages: [
           { role: "system", content: buildSystemPrompt() },
-          ...aiHistory.slice(-12),
+          ...compact,
         ],
         temperature: 0.6,
         max_tokens: 800,
@@ -877,7 +1049,7 @@ function wireUp() {
     const p = currentProblem();
     if (!p) return;
     if (!confirm("현재 코드를 starter로 초기화하시겠습니까?")) return;
-    const starter = p.starter?.[state.lang] ?? p.starter?.javascript ?? "";
+    const starter = p.starter?.[state.lang] ?? p.starter?.python ?? "";
     els.codeInput.value = starter;
     paintEditor();
     saveCode();
@@ -897,6 +1069,7 @@ function wireUp() {
   els.aiInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendAI();
   });
+  initAiResize();
 
   // Rail: tweaks
   els.railSettings.addEventListener("click", (e) => {
@@ -1096,7 +1269,7 @@ function boot() {
   const savedAccent = localStorage.getItem("cp_accent");
   if (savedAccent && ACCENTS[savedAccent]) applyAccent(savedAccent);
   const savedLang = localStorage.getItem("cp_lang");
-  if (savedLang && ["javascript", "python", "cpp"].includes(savedLang)) {
+  if (savedLang && ["java", "python", "cpp"].includes(savedLang)) {
     state.lang = savedLang;
   }
   const savedDensity = localStorage.getItem("cp_density");
