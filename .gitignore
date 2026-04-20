@@ -8,3 +8,5 @@ __pycache__/
 .playwright-mcp
 *.png
 .design_v*
+leetcode-pattern-500/
+CLAUDE.md
