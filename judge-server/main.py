@@ -84,6 +84,7 @@ class ChatRequest(BaseModel):
 class ClientLogRequest(BaseModel):
     ts: str
     userId: str
+    phase: str = "normal"
     sessionId: Optional[str] = None
     setId: Optional[Any] = None
     language: Optional[str] = None
@@ -615,8 +616,11 @@ def client_log(req: ClientLogRequest):
     log_root = Path(__file__).resolve().parent / "client_logs"
     user_dir = log_root / _safe_segment(req.userId)
     user_dir.mkdir(parents=True, exist_ok=True)
+    phase = _safe_segment(req.phase or "normal", "normal")
     fname = (
-        f"p{req.problemId}.jsonl" if req.problemId is not None else "_meta.jsonl"
+        f"{phase}_p{req.problemId}.jsonl"
+        if req.problemId is not None
+        else f"{phase}_meta.jsonl"
     )
     fpath = user_dir / fname
     with fpath.open("a", encoding="utf-8") as f:

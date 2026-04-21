@@ -22,6 +22,7 @@ const runArgs = {
   setId: PARAMS.get("set") || PARAMS.get("set_id") || null,
   userIdParam: PARAMS.get("user_id") || null,
   language: (PARAMS.get("lang") || "python").toLowerCase(),
+  mode: (PARAMS.get("mode") || "").toLowerCase(),
 };
 if (!["java", "python", "cpp"].includes(runArgs.language)) {
   runArgs.language = "python";
@@ -29,6 +30,23 @@ if (!["java", "python", "cpp"].includes(runArgs.language)) {
 
 const SESSION_USER_KEY = "cp_user_id";
 const LOG_QUEUE_KEY = "cp_log_queue";
+const EXP_SUFFIX = "_exp";
+
+let allowedUsers = [];
+
+function resolveUserId(rawUid) {
+  const isExp = rawUid.endsWith(EXP_SUFFIX);
+  const baseId = isExp ? rawUid.slice(0, -EXP_SUFFIX.length) : rawUid;
+  return { baseId, isExp };
+}
+
+function isAllowedUser(baseId) {
+  return allowedUsers.length === 0 || allowedUsers.includes(baseId);
+}
+
+function isTester() {
+  return (session.userId || "").startsWith("test_");
+}
 
 const session = {
   userId: null,
@@ -50,6 +68,7 @@ const state = {
   density: "comfortable",
   chatInitialized: false,
   lastSeedProblemId: null,
+  explainLocked: false,
 };
 
 const els = {};
@@ -88,17 +107,31 @@ function cacheEls() {
     "diffBtn",
     "minimap",
     "app",
+    "explainOverlay",
+    "explainList",
+    "explainInput",
+    "explainSend",
+    "explainResize",
   ];
   ids.forEach((id) => (els[id] = document.getElementById(id)));
 }
 
 // ────────────── Logging (central server) ──────────────
+function currentPhase() {
+  return runArgs.mode === "phase2" ? "phase2" : "normal";
+}
+
+function logMirrorKey(userId) {
+  return `cp_log_${userId}:${currentPhase()}`;
+}
+
 function logEvent(action, detail = {}) {
   if (!session.userId) return;
   const p = currentProblem();
   const row = {
     ts: new Date().toISOString(),
     userId: session.userId,
+    phase: currentPhase(),
     sessionId: session.sessionId,
     setId: runArgs.setId,
     language: state.lang,
@@ -107,7 +140,7 @@ function logEvent(action, detail = {}) {
     action,
     detail,
   };
-  const mirrorKey = `cp_log_${session.userId}`;
+  const mirrorKey = logMirrorKey(session.userId);
   const mirror = JSON.parse(localStorage.getItem(mirrorKey) || "[]");
   mirror.push(row);
   localStorage.setItem(mirrorKey, JSON.stringify(mirror));
@@ -207,20 +240,16 @@ async function loadData() {
   state.testcases = t;
   state.sets = s.sets || [];
 
-  // Build queue: URL set= selects a single set; otherwise use all problems
+  // Build queue: ?set=X filters to that set's IDs; otherwise all problems.json entries
   let pool = [];
   if (runArgs.setId) {
     const match = state.sets.find(
       (x) => Number(x.setId) === Number(runArgs.setId),
     );
-    if (match) pool = (match.problemIds || []).slice();
-  }
-  if (!pool.length) {
-    state.sets.forEach((set) =>
-      (set.problemIds || []).forEach((id) => {
-        if (!pool.includes(id)) pool.push(id);
-      }),
-    );
+    if (match) {
+      const setIds = new Set(match.problemIds || []);
+      pool = state.problems.filter((x) => setIds.has(x.id)).map((x) => x.id);
+    }
   }
   if (!pool.length) pool = state.problems.map((x) => x.id);
   state.queue = pool;
@@ -270,15 +299,16 @@ function renderProbList() {
   const host = els.railProbs;
   if (!host) return;
   const total = state.queue.length;
+  const tester = isTester();
   host.innerHTML = "";
   for (let i = 0; i < total; i++) {
     const solved = state.solved.has(i);
     const current = i === state.idx;
-    const locked = !solved && !current;
+    const locked = !tester && !solved && !current;
     const node = document.createElement("div");
     node.className =
       `p-node ${solved ? "solved" : ""} ${current ? "current" : ""} ${locked ? "locked" : ""}`.trim();
-    node.title = `Problem ${i + 1}${solved ? " · solved" : current ? " · current" : " · locked"}`;
+    node.title = `Problem ${i + 1}${solved ? " · solved" : current ? " · current" : locked ? " · locked" : ""}`;
     node.innerHTML =
       `<span class="num">${String(i + 1).padStart(2, "0")}</span>` +
       (solved
@@ -286,6 +316,15 @@ function renderProbList() {
         : locked
           ? `<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`
           : `<span class="num-big">${i + 1}</span>`);
+    if (tester && i !== state.idx) {
+      node.style.cursor = "pointer";
+      node.addEventListener("click", () => {
+        state.idx = i;
+        render();
+        termClear();
+        logEvent("tester_jump", { toIdx: i });
+      });
+    }
     host.appendChild(node);
   }
   const cur = host.querySelector(".p-node.current");
@@ -294,7 +333,8 @@ function renderProbList() {
 
 function updateNextGate() {
   const canAdvance =
-    state.solved.has(state.idx) && state.idx < state.queue.length - 1;
+    (isTester() || state.solved.has(state.idx)) &&
+    state.idx < state.queue.length - 1;
   els.nextBtn.disabled = !canAdvance;
   els.nextBtn.title = canAdvance
     ? "다음 문제로 이동"
@@ -303,30 +343,82 @@ function updateNextGate() {
       : "Submit으로 모든 테스트를 통과해야 다음 문제로 이동할 수 있습니다";
 }
 
-// [이미지N] 마커를 img 태그로 치환. 사용된 이미지 인덱스 Set 반환.
+function resolveImage(entry) {
+  if (!entry) return null;
+  if (typeof entry === "string") return { src: entry.trim(), style: "" };
+  const src = (entry.src || "").trim();
+  if (!src) return null;
+  const parts = [];
+  if (entry.width) parts.push(`width:${entry.width}`);
+  if (entry.height) parts.push(`height:${entry.height}`);
+  return { src, style: parts.length ? parts.join(";") : "" };
+}
+
+// [이미지N] 마커를 img 태그로 치환 + 마크다운 파싱. 사용된 이미지 인덱스 Set 반환.
 function buildRichText(text, images) {
   const used = new Set();
-  const parts = (text || "").split(/(\[이미지\d+\])/g);
-  let html = "";
-  for (const part of parts) {
-    const m = part.match(/^\[이미지(\d+)\]$/);
-    if (m) {
-      const idx = parseInt(m[1], 10) - 1;
-      const src = (images[idx] || "").trim();
-      if (src) {
-        used.add(idx);
-        html += `<img class="p-image" src="${encodeURI(src)}" alt="" onerror="this.style.display='none'">`;
-      }
-    } else {
-      html += escapeHtml(part).replace(/\n/g, "<br>");
-    }
+  const IMG_PH = "\x00IMGPH\x00";
+
+  let src = (text || "").replace(
+    /\[이미지(\d+)\]/g,
+    (_, n) => `${IMG_PH}${n}${IMG_PH}`,
+  );
+
+  let html;
+  if (typeof marked !== "undefined") {
+    marked.setOptions({ gfm: true, breaks: true });
+    html = marked.parse(src);
+  } else {
+    html = `<p>${escapeHtml(src).replace(/\n/g, "<br>")}</p>`;
   }
+
+  const phRe = new RegExp(
+    `${IMG_PH.replace(/\x00/g, "\\x00")}(\\d+)${IMG_PH.replace(/\x00/g, "\\x00")}`,
+    "g",
+  );
+  html = html.replace(phRe, (_, n) => {
+    const idx = parseInt(n, 10) - 1;
+    const img = resolveImage(images[idx]);
+    if (!img) return "";
+    used.add(idx);
+    const styleAttr = img.style ? ` style="${img.style}"` : "";
+    return `<img class="p-image" src="${encodeURI(img.src)}" alt=""${styleAttr} onerror="this.style.display='none'">`;
+  });
+
   return { html, used };
 }
 
 function buildDescHtml(p) {
-  const { html } = buildRichText(p.description, p.images || []);
-  return `<p>${html}</p>`;
+  const images = p.images || [];
+  const IMG_PH = "\x00IMGPH\x00";
+
+  // Protect [이미지N] markers before markdown parsing
+  let text = (p.description || "").replace(
+    /\[이미지(\d+)\]/g,
+    (_, n) => `${IMG_PH}${n}${IMG_PH}`,
+  );
+
+  let html;
+  if (typeof marked !== "undefined") {
+    marked.setOptions({ gfm: true, breaks: true });
+    html = marked.parse(text);
+  } else {
+    html = `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>`;
+  }
+
+  // Restore image placeholders
+  const phRe = new RegExp(
+    `${IMG_PH.replace(/\x00/g, "\\x00")}(\\d+)${IMG_PH.replace(/\x00/g, "\\x00")}`,
+    "g",
+  );
+  html = html.replace(phRe, (_, n) => {
+    const img = resolveImage(images[parseInt(n) - 1]);
+    if (!img) return "";
+    const styleAttr = img.style ? ` style="${img.style}"` : "";
+    return `<img class="p-image" src="${escapeHtml(img.src)}" alt="이미지${n}"${styleAttr} onerror="this.style.display='none'">`;
+  });
+
+  return html;
 }
 
 function render() {
@@ -338,21 +430,54 @@ function render() {
   els.pDesc.innerHTML = buildDescHtml(p);
 
   els.pExamples.innerHTML = "";
-  (p.examples || []).forEach((ex, i) => {
-    const box = document.createElement("div");
-    box.className = "example";
-    let inner = `
-      <div class="ex-label">Example ${i + 1}</div>
-      <div class="ex-row"><span class="ex-k">Input</span><span class="ex-v">${escapeHtml(ex.input)}</span></div>
-      <div class="ex-row"><span class="ex-k">Output</span><span class="ex-v">${escapeHtml(ex.output)}</span></div>
-    `;
-    if (ex.explanation) {
-      const { html } = buildRichText(ex.explanation, p.images || []);
-      inner += `<div class="ex-explanation"><span class="ex-k">Explanation</span><div class="ex-explanation-body">${html}</div></div>`;
+  const examples = p.examples || [];
+  if (examples.length > 0) {
+    const wrap = document.createElement("div");
+    wrap.className = "ex-tabbed";
+
+    // tab bar (only shown when 2+ examples)
+    if (examples.length > 1) {
+      const bar = document.createElement("div");
+      bar.className = "ex-tabs";
+      examples.forEach((_, i) => {
+        const btn = document.createElement("button");
+        btn.className = "ex-tab" + (i === 0 ? " active" : "");
+        btn.textContent = `Example ${i + 1}`;
+        btn.addEventListener("click", () => {
+          bar
+            .querySelectorAll(".ex-tab")
+            .forEach((b) => b.classList.remove("active"));
+          wrap
+            .querySelectorAll(".ex-panel")
+            .forEach((pnl) => pnl.classList.remove("active"));
+          btn.classList.add("active");
+          wrap.querySelectorAll(".ex-panel")[i].classList.add("active");
+        });
+        bar.appendChild(btn);
+      });
+      wrap.appendChild(bar);
     }
-    box.innerHTML = inner;
-    els.pExamples.appendChild(box);
-  });
+
+    examples.forEach((ex, i) => {
+      const panel = document.createElement("div");
+      panel.className = "ex-panel" + (i === 0 ? " active" : "");
+      const box = document.createElement("div");
+      box.className = "example";
+      let inner = `
+        <div class="ex-row"><span class="ex-k">Input</span><span class="ex-v">${escapeHtml(ex.input)}</span></div>
+        <div class="ex-row"><span class="ex-k">Output</span><span class="ex-v">${escapeHtml(ex.output)}</span></div>
+      `;
+      if (ex.explanation) {
+        const { html } = buildRichText(ex.explanation, p.images || []);
+        inner += `<div class="ex-explanation"><span class="ex-k">Explanation</span><div class="ex-explanation-body">${html}</div></div>`;
+      }
+      box.innerHTML = inner;
+      panel.appendChild(box);
+      wrap.appendChild(panel);
+    });
+
+    els.pExamples.appendChild(wrap);
+  }
 
   els.qCounter.textContent = `Question ${state.idx + 1} of ${state.queue.length}`;
 
@@ -387,6 +512,13 @@ function render() {
     state.lastSeedProblemId = p.id;
     if (els.aiPanel?.classList.contains("open")) initChatSession();
   }
+
+  if (runArgs.mode === "phase2") {
+    state.explainLocked = true;
+    if (els.explainList) els.explainList.innerHTML = "";
+    if (els.explainInput) els.explainInput.value = "";
+  }
+  applyExplainLock();
 }
 
 // ────────────── Syntax highlight (overlay) ──────────────
@@ -849,6 +981,76 @@ function initAiResize() {
   });
 }
 
+function initAiDrag() {
+  const head = document.querySelector(".ai-head");
+  const panel = els.aiPanel;
+  if (!head || !panel) return;
+
+  const POS_KEY = "cp_ai_pos";
+
+  function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+  }
+
+  function applyPos(left, top) {
+    const rect = panel.getBoundingClientRect();
+    const maxL = window.innerWidth - rect.width - 4;
+    const maxT = window.innerHeight - rect.height - 4;
+    panel.style.left = clamp(left, 4, maxL) + "px";
+    panel.style.top = clamp(top, 4, maxT) + "px";
+    panel.style.bottom = "auto";
+  }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(POS_KEY) || "null");
+    if (
+      saved &&
+      typeof saved.left === "number" &&
+      typeof saved.top === "number"
+    ) {
+      panel.style.left = saved.left + "px";
+      panel.style.top = saved.top + "px";
+      panel.style.bottom = "auto";
+    }
+  } catch (_) {
+    /* ignore */
+  }
+
+  let ox = 0,
+    oy = 0;
+
+  function onMove(ev) {
+    const rect = panel.getBoundingClientRect();
+    applyPos(ev.clientX - ox, ev.clientY - oy);
+  }
+
+  function onUp() {
+    window.removeEventListener("pointermove", onMove);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    const rect = panel.getBoundingClientRect();
+    localStorage.setItem(
+      POS_KEY,
+      JSON.stringify({
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+      }),
+    );
+  }
+
+  head.addEventListener("pointerdown", (ev) => {
+    if (ev.target.closest(".ai-close, .ai-resize")) return;
+    ev.preventDefault();
+    const rect = panel.getBoundingClientRect();
+    ox = ev.clientX - rect.left;
+    oy = ev.clientY - rect.top;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+  });
+}
+
 async function fetchAsDataUrl(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -942,6 +1144,7 @@ async function sendAI() {
   if (!q) return;
   addMsg("user", escapeHtml(q));
   els.aiInput.value = "";
+  els.aiInput.style.height = "auto";
   aiHistory.push({ role: "user", content: q });
   logEvent("ai_user_message", { text: q });
 
@@ -1021,12 +1224,84 @@ function applyFontSize(name) {
   localStorage.setItem("cp_fs", fs);
 }
 
+// ────────────── Explain mode ──────────────
+function initExplainResize() {
+  const handle = els.explainResize;
+  const input = els.explainInput;
+  if (!handle || !input) return;
+  let startY = 0;
+  let startH = 0;
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    startY = e.clientY;
+    startH = input.getBoundingClientRect().height;
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener("pointermove", (e) => {
+    if (!handle.hasPointerCapture(e.pointerId)) return;
+    const delta = startY - e.clientY;
+    const next = Math.min(500, Math.max(160, startH + delta));
+    input.style.height = `${next}px`;
+  });
+  handle.addEventListener("pointerup", (e) => {
+    handle.releasePointerCapture(e.pointerId);
+  });
+}
+
+function applyExplainLock() {
+  const locked = !!state.explainLocked;
+  els.explainOverlay?.classList.toggle("active", locked);
+  els.explainOverlay?.setAttribute("aria-hidden", String(!locked));
+  if (els.codeInput) els.codeInput.readOnly = locked;
+  if (els.runBtn) els.runBtn.disabled = locked;
+  if (els.submitBtn) els.submitBtn.disabled = locked;
+  if (locked && els.nextBtn) els.nextBtn.disabled = true;
+}
+
+// TODO: replace with real criteria
+function checkExplainCriteria(text) {
+  return text.trim().length >= 200;
+}
+
+// TODO: replace with real AI call
+async function generateExplainFeedback(_text) {
+  await new Promise((r) => setTimeout(r, 300));
+  return "(샘플 피드백) 설명을 잘 받았습니다. 접근 방법을 좀 더 구체적으로 설명해 주세요.";
+}
+
+function addExplainBubble(kind, text) {
+  const div = document.createElement("div");
+  div.className = `explain-bubble ${kind}`;
+  div.textContent = text;
+  els.explainList.appendChild(div);
+  els.explainList.scrollTop = els.explainList.scrollHeight;
+}
+
+async function sendExplain() {
+  const text = els.explainInput.value.trim();
+  if (!text) return;
+  addExplainBubble("user", text);
+  els.explainInput.value = "";
+  els.explainSend.disabled = true;
+  try {
+    const fb = await generateExplainFeedback(text);
+    addExplainBubble("bot", fb);
+    if (checkExplainCriteria(text)) {
+      state.explainLocked = false;
+      applyExplainLock();
+      logEvent("explain_unlock", { chars: text.length });
+    }
+  } finally {
+    els.explainSend.disabled = false;
+  }
+}
+
 // ────────────── Wire up ──────────────
 function wireUp() {
   els.runBtn.addEventListener("click", () => judge("run"));
   els.submitBtn.addEventListener("click", () => judge("submit"));
   els.nextBtn.addEventListener("click", () => {
-    if (!state.solved.has(state.idx)) return;
+    if (!isTester() && !state.solved.has(state.idx)) return;
     if (state.idx < state.queue.length - 1) {
       state.idx++;
       saveProgress(session.userId, { idx: state.idx });
@@ -1083,9 +1358,18 @@ function wireUp() {
   els.aiClose.addEventListener("click", closeAI);
   els.aiSend.addEventListener("click", sendAI);
   els.aiInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendAI();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendAI();
+    }
+  });
+  els.aiInput.addEventListener("input", () => {
+    const el = els.aiInput;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
   });
   initAiResize();
+  initAiDrag();
 
   // Rail: tweaks
   els.railSettings.addEventListener("click", (e) => {
@@ -1149,8 +1433,9 @@ function wireUp() {
 
   // Export
   els.exportBtn.addEventListener("click", () => {
+    const phase = currentPhase();
     const arr = JSON.parse(
-      localStorage.getItem(`cp_log_${session.userId}`) || "[]",
+      localStorage.getItem(logMirrorKey(session.userId)) || "[]",
     );
     const jsonl = arr.map((r) => JSON.stringify(r)).join("\n");
     const blob = new Blob([jsonl], {
@@ -1159,9 +1444,19 @@ function wireUp() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${session.userId}_logs_${Date.now()}.jsonl`;
+    a.download = `${session.userId}_${phase}_logs_${Date.now()}.jsonl`;
     a.click();
     URL.revokeObjectURL(url);
+  });
+
+  // Explain mode send + resize
+  initExplainResize();
+  els.explainSend?.addEventListener("click", sendExplain);
+  els.explainInput?.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      sendExplain();
+    }
   });
 
   // Click outside tweaks to close
@@ -1219,7 +1514,7 @@ function showToast(msg) {
 }
 
 // ────────────── Boot: login / resume ──────────────
-function showLogin() {
+function showLogin(initialError = "") {
   const overlay = document.createElement("div");
   overlay.id = "loginOverlay";
   overlay.innerHTML = `
@@ -1243,20 +1538,27 @@ function showLogin() {
   const btn = overlay.querySelector("#loginBtn");
   const prev = localStorage.getItem(SESSION_USER_KEY);
   if (prev) input.value = prev;
+  if (initialError) err.textContent = initialError;
   input.focus();
 
   const go = () => {
-    const uid = input.value.trim();
-    if (!uid) {
+    const raw = input.value.trim();
+    if (!raw) {
       err.textContent = "ID를 입력하세요.";
       return;
     }
-    if (!/^[\w.-]{2,64}$/.test(uid)) {
+    if (!/^[\w.-]{2,64}$/.test(raw)) {
       err.textContent = "ID는 문자/숫자/._-만 사용 가능합니다.";
       return;
     }
-    localStorage.setItem(SESSION_USER_KEY, uid);
-    beginSession(uid);
+    const { baseId, isExp } = resolveUserId(raw);
+    if (!isAllowedUser(baseId)) {
+      err.textContent = "허용되지 않은 사용자 ID입니다.";
+      return;
+    }
+    if (isExp) runArgs.mode = "phase2";
+    localStorage.setItem(SESSION_USER_KEY, baseId);
+    beginSession(baseId);
     overlay.remove();
   };
   btn.addEventListener("click", go);
@@ -1280,6 +1582,7 @@ function beginSession(uid) {
 function boot() {
   cacheEls();
   wireUp();
+  applyExplainLock();
 
   // Restore saved lang/density; accent follows language automatically
   const savedLang = localStorage.getItem("cp_lang");
@@ -1296,12 +1599,28 @@ function boot() {
 
   setupVdividerDrag();
 
-  // If URL provided a user_id, skip login for backward compat with older links
-  if (runArgs.userIdParam) {
-    beginSession(runArgs.userIdParam);
-  } else {
-    showLogin();
-  }
+  // Load allowed user list, then handle login
+  fetch("./data/allowed_users.json")
+    .then((r) => r.json())
+    .then((list) => {
+      allowedUsers = Array.isArray(list) ? list : [];
+    })
+    .catch(() => {
+      allowedUsers = [];
+    })
+    .finally(() => {
+      if (runArgs.userIdParam) {
+        const { baseId, isExp } = resolveUserId(runArgs.userIdParam);
+        if (!isAllowedUser(baseId)) {
+          showLogin("허용되지 않은 사용자 ID입니다.");
+        } else {
+          if (isExp) runArgs.mode = "phase2";
+          beginSession(baseId);
+        }
+      } else {
+        showLogin();
+      }
+    });
 }
 
 function setupVdividerDrag() {

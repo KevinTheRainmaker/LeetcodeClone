@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
 """
-client_logs/{userId}/p{problemId}.jsonl 파일들을 읽어
-사용자 → 문제 계층으로 구조화된 JSON 리포트를 생성합니다.
+client_logs/{userId}/{phase}_p{problemId}.jsonl 파일들을 읽어
+사용자 → 페이즈 → 문제 계층으로 구조화된 리포트를 생성합니다.
+
+파일명 규칙:
+  신규: {phase}_p{pid}.jsonl  (예: normal_p1.jsonl, phase2_p3.jsonl)
+  구형: p{pid}.jsonl          (phase="normal" 로 취급)
 
 사용 예:
-  python analyze_logs.py                                  # 전체 요약(summary)
-  python analyze_logs.py --format json                    # 전체를 pretty JSON으로
-  python analyze_logs.py --user kevin                     # 특정 유저만
-  python analyze_logs.py --user kevin --problem 1         # 특정 문제만
-  python analyze_logs.py --format timeline --user kevin   # 시간순 이벤트 목록
-  python analyze_logs.py --format json --out report.json  # 파일로 저장
-  python analyze_logs.py --full                           # code/text 원문 전체 포함
+  python analyze_logs.py                                        # 전체 요약
+  python analyze_logs.py --phase phase2                         # phase2만
+  python analyze_logs.py --user 251136                          # 특정 유저
+  python analyze_logs.py --user 251136 --problem 1              # 특정 문제
+  python analyze_logs.py --format json                          # pretty JSON
+  python analyze_logs.py --format timeline --user 251136        # 시간순 이벤트
+  python analyze_logs.py --format csv                           # 요약 CSV
+  python analyze_logs.py --format csv --out summary.csv         # CSV 파일 저장
+  python analyze_logs.py --format json --out report.json        # JSON 파일 저장
+  python analyze_logs.py --full                                  # code/text 원문 전체 포함
 """
 
 import argparse
+import csv
+import io
 import json
+import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,23 +33,41 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 LOG_ROOT = Path(__file__).resolve().parent / "client_logs"
 SNIPPET_LIMIT = 240
 
+_FILE_NEW = re.compile(r"^(.+)_p(\d+)$")
+_FILE_OLD = re.compile(r"^p(\d+)$")
+
+
+def parse_stem(stem: str) -> Tuple[Optional[str], Optional[int]]:
+    """Return (phase, pid) from a .jsonl stem, or (None, None) to skip."""
+    m = _FILE_NEW.match(stem)
+    if m:
+        return m.group(1), int(m.group(2))
+    m = _FILE_OLD.match(stem)
+    if m:
+        return "normal", int(m.group(1))
+    return None, None
+
 
 def iter_log_files(
-    user: Optional[str] = None, problem: Optional[int] = None
-) -> Iterator[Tuple[str, Optional[int], Path]]:
+    user: Optional[str] = None,
+    problem: Optional[int] = None,
+    phase: Optional[str] = None,
+) -> Iterator[Tuple[str, str, Optional[int], Path]]:
+    """Yields (userId, phase, pid, filepath)."""
     if not LOG_ROOT.exists():
         return
     for user_dir in sorted(p for p in LOG_ROOT.iterdir() if p.is_dir()):
         if user and user_dir.name != user:
             continue
         for fp in sorted(user_dir.glob("*.jsonl")):
-            stem = fp.stem
-            pid: Optional[int] = None
-            if stem.startswith("p") and stem[1:].isdigit():
-                pid = int(stem[1:])
+            file_phase, pid = parse_stem(fp.stem)
+            if file_phase is None:
+                continue
+            if phase is not None and file_phase != phase:
+                continue
             if problem is not None and pid != problem:
                 continue
-            yield user_dir.name, pid, fp
+            yield user_dir.name, file_phase, pid, fp
 
 
 def load_events(fp: Path) -> List[Dict[str, Any]]:
@@ -100,8 +128,11 @@ def summarize_problem(events: List[Dict[str, Any]]) -> Dict[str, Any]:
             if final_code_len is not None:
                 break
 
+    explain_unlocked = any(e.get("action") == "explain_unlock" for e in events)
+
     return {
         "solved": counts.get("problem_solved", 0) > 0,
+        "explainUnlocked": explain_unlocked,
         "eventCount": len(events),
         "durationSec": duration_sec(events),
         "firstEventAt": first_ts,
@@ -136,6 +167,7 @@ def timeline_view(
         row: Dict[str, Any] = {
             "ts": e.get("ts"),
             "action": e.get("action"),
+            "phase": e.get("phase", "normal"),
         }
         if "code" in d:
             code = d.get("code", "")
@@ -162,6 +194,7 @@ def timeline_view(
             "resumedFrom",
             "solvedCount",
             "queueLength",
+            "chars",
         ):
             if k in d:
                 row[k] = d[k]
@@ -172,47 +205,53 @@ def timeline_view(
 def build_report(
     user: Optional[str],
     problem: Optional[int],
+    phase: Optional[str],
     include_timeline: bool,
     full: bool,
 ) -> Dict[str, Any]:
-    grouped: Dict[str, Dict[str, List[Dict[str, Any]]]] = defaultdict(
-        lambda: defaultdict(list)
+    # grouped[userId][phase][pid_key] = [events]
+    grouped: Dict[str, Dict[str, Dict[str, List[Dict[str, Any]]]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(list))
     )
-    for u, pid, fp in iter_log_files(user, problem):
+    for u, ph, pid, fp in iter_log_files(user, problem, phase):
         key = f"p{pid}" if pid is not None else "_meta"
-        grouped[u][key] = load_events(fp)
+        grouped[u][ph][key] = load_events(fp)
 
     report = {
-        "generatedAt": datetime.now(timezone.utc).isoformat().replace(
-            "+00:00", "Z"
-        ),
-        "filters": {"user": user, "problem": problem},
+        "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "filters": {"user": user, "problem": problem, "phase": phase},
         "users": {},
     }
 
     for u in sorted(grouped.keys()):
-        probs = grouped[u]
-        problem_keys = [k for k in probs if k != "_meta"]
-        solved = sum(
-            1
-            for k in problem_keys
-            if any(e.get("action") == "problem_solved" for e in probs[k])
-        )
-        total_events = sum(len(v) for v in probs.values())
-        user_block: Dict[str, Any] = {
-            "summary": {
-                "problemsAttempted": len(problem_keys),
-                "problemsSolved": solved,
-                "totalEvents": total_events,
-            },
-            "problems": {},
-        }
-        for pkey in sorted(probs.keys()):
-            evs = probs[pkey]
-            entry = {"summary": summarize_problem(evs)}
-            if include_timeline:
-                entry["timeline"] = timeline_view(evs, full=full)
-            user_block["problems"][pkey] = entry
+        phases = grouped[u]
+        user_block: Dict[str, Any] = {"phases": {}}
+
+        for ph in sorted(phases.keys()):
+            probs = phases[ph]
+            problem_keys = [k for k in probs if k != "_meta"]
+            solved = sum(
+                1
+                for k in problem_keys
+                if any(e.get("action") == "problem_solved" for e in probs[k])
+            )
+            total_events = sum(len(v) for v in probs.values())
+            phase_block: Dict[str, Any] = {
+                "summary": {
+                    "problemsAttempted": len(problem_keys),
+                    "problemsSolved": solved,
+                    "totalEvents": total_events,
+                },
+                "problems": {},
+            }
+            for pkey in sorted(probs.keys()):
+                evs = probs[pkey]
+                entry = {"summary": summarize_problem(evs)}
+                if include_timeline:
+                    entry["timeline"] = timeline_view(evs, full=full)
+                phase_block["problems"][pkey] = entry
+            user_block["phases"][ph] = phase_block
+
         report["users"][u] = user_block
 
     return report
@@ -221,29 +260,91 @@ def build_report(
 def render_summary(report: Dict[str, Any]) -> str:
     lines = [f"# Log Summary · generated {report['generatedAt']}"]
     flt = report.get("filters") or {}
-    if flt.get("user") or flt.get("problem") is not None:
-        lines.append(f"# filters: {flt}")
+    active = {k: v for k, v in flt.items() if v is not None}
+    if active:
+        lines.append(f"# filters: {active}")
+
     for u, udata in report["users"].items():
-        s = udata["summary"]
         lines.append("")
-        lines.append(
-            f"USER {u}: {s['problemsSolved']}/{s['problemsAttempted']} solved · "
-            f"{s['totalEvents']} events"
-        )
-        for pkey in sorted(udata["problems"].keys()):
-            p = udata["problems"][pkey]["summary"]
-            mark = "✓" if p["solved"] else "·"
-            dur = p["durationSec"]
-            dur_s = f"{int(dur // 60)}m{int(dur % 60):02d}s" if dur >= 60 else f"{dur}s"
+        lines.append(f"USER {u}")
+        for ph, phdata in sorted(udata["phases"].items()):
+            s = phdata["summary"]
             lines.append(
-                f"  {mark} {pkey}: edits={p['codeEdits']} saves={p['manualSaves']} "
-                f"runs={p['runs']} submits={p['submits']} "
-                f"ai={p['aiUserMessages']}/{p['aiAssistantReplies']} "
-                f"codeLen={p['finalCodeLength']} dur={dur_s}"
+                f"  [{ph}] {s['problemsSolved']}/{s['problemsAttempted']} solved · "
+                f"{s['totalEvents']} events"
             )
+            for pkey in sorted(phdata["problems"].keys()):
+                p = phdata["problems"][pkey]["summary"]
+                mark = "✓" if p["solved"] else "·"
+                dur = p["durationSec"]
+                dur_s = (
+                    f"{int(dur // 60)}m{int(dur % 60):02d}s"
+                    if dur >= 60
+                    else f"{dur}s"
+                )
+                unlock = " unlock=✓" if p.get("explainUnlocked") else ""
+                lines.append(
+                    f"    {mark} {pkey}: edits={p['codeEdits']} saves={p['manualSaves']} "
+                    f"runs={p['runs']} submits={p['submits']} "
+                    f"ai={p['aiUserMessages']}/{p['aiAssistantReplies']} "
+                    f"codeLen={p['finalCodeLength']} dur={dur_s}{unlock}"
+                )
+
     if not report["users"]:
         lines.append("\n(no logs found)")
     return "\n".join(lines)
+
+
+CSV_FIELDS = [
+    "userId",
+    "phase",
+    "problemId",
+    "solved",
+    "explainUnlocked",
+    "durationSec",
+    "eventCount",
+    "codeEdits",
+    "manualSaves",
+    "runs",
+    "submits",
+    "aiUserMessages",
+    "aiAssistantReplies",
+    "finalCodeLength",
+    "firstEventAt",
+    "lastEventAt",
+]
+
+
+def render_csv(report: Dict[str, Any]) -> str:
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=CSV_FIELDS, extrasaction="ignore")
+    writer.writeheader()
+    for u, udata in sorted(report["users"].items()):
+        for ph, phdata in sorted(udata["phases"].items()):
+            for pkey, pdata in sorted(phdata["problems"].items()):
+                s = pdata["summary"]
+                pid = int(pkey[1:]) if pkey.startswith("p") and pkey[1:].isdigit() else pkey
+                writer.writerow(
+                    {
+                        "userId": u,
+                        "phase": ph,
+                        "problemId": pid,
+                        "solved": s["solved"],
+                        "explainUnlocked": s.get("explainUnlocked", False),
+                        "durationSec": s["durationSec"],
+                        "eventCount": s["eventCount"],
+                        "codeEdits": s["codeEdits"],
+                        "manualSaves": s["manualSaves"],
+                        "runs": s["runs"],
+                        "submits": s["submits"],
+                        "aiUserMessages": s["aiUserMessages"],
+                        "aiAssistantReplies": s["aiAssistantReplies"],
+                        "finalCodeLength": s["finalCodeLength"],
+                        "firstEventAt": s["firstEventAt"],
+                        "lastEventAt": s["lastEventAt"],
+                    }
+                )
+    return buf.getvalue()
 
 
 def main() -> None:
@@ -254,9 +355,10 @@ def main() -> None:
     )
     ap.add_argument("--user", help="특정 userId로 필터")
     ap.add_argument("--problem", type=int, help="특정 problemId로 필터")
+    ap.add_argument("--phase", help="특정 phase로 필터 (normal | phase2)")
     ap.add_argument(
         "--format",
-        choices=["summary", "json", "timeline"],
+        choices=["summary", "json", "timeline", "csv"],
         default="summary",
         help="출력 형식 (기본 summary)",
     )
@@ -272,18 +374,22 @@ def main() -> None:
     report = build_report(
         user=args.user,
         problem=args.problem,
+        phase=args.phase,
         include_timeline=include_timeline,
         full=args.full,
     )
 
     if args.format == "summary":
         text = render_summary(report)
+    elif args.format == "csv":
+        text = render_csv(report)
     elif args.format == "timeline":
         rows: List[Dict[str, Any]] = []
         for u, udata in report["users"].items():
-            for pkey, pdata in udata["problems"].items():
-                for ev in pdata.get("timeline", []):
-                    rows.append({"user": u, "problem": pkey, **ev})
+            for ph, phdata in udata["phases"].items():
+                for pkey, pdata in phdata["problems"].items():
+                    for ev in pdata.get("timeline", []):
+                        rows.append({"user": u, "phase": ph, "problem": pkey, **ev})
         rows.sort(key=lambda r: r.get("ts") or "")
         text = json.dumps(rows, ensure_ascii=False, indent=2)
     else:

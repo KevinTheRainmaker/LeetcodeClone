@@ -38,7 +38,7 @@
 - `set` 또는 `set_id`: 문제세트 번호 (`data/problem_sets.json`)
 - `mode`: `memo | assistant | socratic`
 - `user_id`: 사용자 식별자 (로그 분리 저장)
-- `lang` (옵션): `javascript | python | cpp` (기본 `javascript`)
+- `lang` (옵션): `python | java | cpp` (기본 `python`)
 
 ---
 

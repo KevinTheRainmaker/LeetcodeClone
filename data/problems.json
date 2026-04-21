@@ -1,168 +1,190 @@
 [
   {
     "id": 1,
-    "slug": "number-of-rooms",
-    "title": "방의 갯수",
-    "difficulty": "medium",
-    "category": "graph",
-    "functionName": "numRooms",
-    "description": "원점(0,0)에서 시작해서 아래처럼 숫자가 적힌 방향으로 이동하며 선을 긋습니다.\n[이미지1]\nex) 1일때는 오른쪽 위로 이동\n\n그림을 그릴 때, 사방이 막히면 방하나로 카운트합니다.\n이동하는 방향이 담긴 배열 arrows가 매개변수로 주어질 때, 방의 갯수를 return 하도록 solution 함수를 작성하세요.\n\n제한사항\n배열 arrows의 크기는 1 이상 100,000 이하 입니다.\narrows의 원소는 0 이상 7 이하 입니다.\n방은 다른 방으로 둘러 싸여질 수 있습니다.",
-    "images": ["data/images/p1_1.png", "data/images/p1_2.png"],
+    "slug": "development-progresses",
+    "title": "기능개발",
+    "difficulty": "easy",
+    "category": "stack-queue",
+    "functionName": "num_features",
+    "description": "지스트 인포팀에서는 기능 개선 작업을 수행 중입니다. 각 기능은 진도가 100%일 때 서비스에 반영할 수 있습니다.\n또, 각 기능의 개발속도는 모두 다르기 때문에 뒤에 있는 기능이 앞에 있는 기능보다 먼저 개발될 수 있고, 이때 뒤에 있는 기능은 앞에 있는 기능이 배포될 때 함께 배포됩니다.\n먼저 배포되어야 하는 순서대로 작업의 진도가 적힌 정수 배열 progresses와 각 작업의 개발 속도가 적힌 정수 배열 speeds가 주어질 때 각 배포마다 몇 개의 기능이 배포되는지를 return 하도록 solution 함수를 완성하세요.\n\n제한 사항\n- 작업의 개수(progresses, speeds배열의 길이)는 100개 이하입니다.\n- 작업 진도는 100 미만의 자연수입니다.\n- 작업 속도는 100 이하의 자연수입니다.\n- 배포는 하루에 한 번만 할 수 있으며, 하루의 끝에 이루어진다고 가정합니다. 예를 들어 진도율이 95%인 작업의 개발 속도가 하루에 4%라면 배포는 2일 뒤에 이루어집니다.",
+    "images": [],
     "examples": [
       {
-        "input": "arrows: [6, 6, 6, 4, 4, 4, 2, 2, 2, 0, 0, 0, 1, 6, 5, 5, 3, 6, 0]",
-        "output": "3",
-        "explanation": "[이미지2]\n- (0,0) 부터 시작해서 6(왼쪽) 으로 3번 이동합니다. 그 이후 주어진 arrows 를 따라 그립니다.\n- 삼각형 (1), 큰 사각형(1), 평행사변형(1) = 3"
+        "input": "progresses: [93, 30, 55], speeds: [1, 30, 5]",
+        "output": "[2, 1]",
+        "explanation": "첫 번째 기능은 93% 완료되어 있고 하루에 1%씩 작업이 가능하므로 7일간 작업 후 배포가 가능합니다.\n두 번째 기능은 30%가 완료되어 있고 하루에 30%씩 작업이 가능하므로 3일간 작업 후 배포가 가능합니다. 하지만 이전 첫 번째 기능이 아직 완성된 상태가 아니기 때문에 첫 번째 기능이 배포되는 7일째 배포됩니다.\n세 번째 기능은 55%가 완료되어 있고 하루에 5%씩 작업이 가능하므로 9일간 작업 후 배포가 가능합니다.\n\n따라서 7일째에 2개의 기능, 9일째에 1개의 기능이 배포됩니다."
+      },
+      {
+        "input": "progress: [95,90,99,99,80,99], speeds: [1,1,1,1,1,1]",
+        "output": "[1,3,2]",
+        "explanation": "모든 기능이 하루에 1%씩 작업이 가능하므로, 작업이 끝나기까지 남은 일수는 각각 5일, 10일, 1일, 1일, 20일, 1일입니다. 어떤 기능이 먼저 완성되었더라도 앞에 있는 모든 기능이 완성되지 않으면 배포가 불가능합니다.\n\n따라서 5일째에 1개의 기능, 10일째에 3개의 기능, 20일째에 2개의 기능이 배포됩니다."
       }
     ],
     "starter": {
-      "python": "def num_rooms(grid):\n    # TODO\n    pass\n",
-      "java": "static int numRooms(int[][] grid):\n    # TODO\n    return 0;\n",
-      "cpp": "int numRooms(vector<vector<int>> grid):\n    # TODO\n    return 0;\n"
+      "python": "def num_features(progresses, speeds):\n    # TODO\n    pass\n",
+      "java": "static int NumFeatures(int[] progresses, int[] speeds):\n    # TODO\n    return 0;\n",
+      "cpp": "int num_features(vector<int> progresses, vector<int> speeds):\n    # TODO\n    return 0;\n"
     }
   },
   {
     "id": 2,
-    "slug": "maximum-depth-of-binary-tree",
-    "title": "Maximum Depth of Binary Tree",
+    "slug": "potatomon",
+    "title": "포텟몬",
     "difficulty": "easy",
-    "category": "tree",
-    "functionName": "maxDepth",
-    "description": "이진 트리의 레벨 순회(level-order) 결과가 정수 배열로 주어집니다. 빈 자식 노드는 -1로 표시됩니다. 이 트리의 최대 깊이(루트에서 가장 먼 리프까지의 노드 수)를 반환하세요.\n\n힌트: 배열 인덱스 i의 자식은 2*i+1, 2*i+2가 되는 완전 이진 트리가 아닙니다. 레벨 순회이므로 -1이 아닌 노드를 큐로 순회하면서 깊이를 세거나, 배열 자체에서 레벨별 노드 수를 추적하세요.",
+    "category": "hash",
+    "functionName": "numRooms",
+    "description": "당신은 포텟몬을 잡기 위한 오랜 여행 끝에, 황 교수님의 연구실에 도착했습니다. 황 교수님은 당신에게 자신의 연구실에 있는 총 N 마리의 포텟몬 중에서 N/2마리를 가져가도 좋다고 했습니다.\n황 교수님 연구실의 포텟몬은 종류에 따라 번호를 붙여 구분합니다. 따라서 같은 종류의 포텟몬은 같은 번호를 가지고 있습니다. 예를 들어 연구실에 총 4마리의 포텟몬이 있고, 각 포텟몬의 종류 번호가 [3번, 1번, 2번, 3번]이라면 이는 3번 포텟몬 두 마리, 1번 포텟몬 한 마리, 2번 포텟몬 한 마리가 있음을 나타냅니다. 이때, 4마리의 포텟몬 중 2마리를 고르는 방법은 다음과 같이 6가지가 있습니다.\n1. 첫 번째(3번), 두 번째(1번) 포텟몬을 선택\n2. 첫 번째(3번), 세 번째(2번) 포텟몬을 선택\n3. 첫 번째(3번), 네 번째(3번) 포텟몬을 선택\n4. 두 번째(1번), 세 번째(2번) 포텟몬을 선택\n5. 두 번째(1번), 네 번째(3번) 포텟몬을 선택\n6. 세 번째(2번), 네 번째(3번) 포텟몬을 선택\n\n이때, 첫 번째(3번) 포텟몬과 네 번째(3번) 포텟몬을 선택하는 방법은 한 종류(3번 포텟몬 두 마리)의 포텟몬만 가질 수 있지만, 다른 방법들은 모두 두 종류의 포텟몬을 가질 수 있습니다. 따라서 위 예시에서 가질 수 있는 포텟몬 종류 수의 최댓값은 2가 됩니다.\n당신은 최대한 다양한 종류의 포텟몬을 가지길 원하기 때문에, 최대한 많은 종류의 포텟몬을 포함해서 N/2마리를 선택하려 합니다. N마리 포텟몬의 종류 번호가 담긴 배열 nums가 매개변수로 주어질 때, N/2마리의 포텟몬을 선택하는 방법 중, 가장 많은 종류의 포텟몬을 선택하는 방법을 찾아, 그때의 포텟몬 종류 번호의 개수를 return 하도록 solution 함수를 완성해주세요.\n\n제한사항\n- nums는 포텟몬의 종류 번호가 담긴 1차원 배열입니다.\n- nums의 길이(N)는 1 이상 10,000 이하의 자연수이며, 항상 짝수로 주어집니다.\n- 포텟몬의 종류 번호는 1 이상 200,000 이하의 자연수로 나타냅니다.\n- 가장 많은 종류의 포텟몬을 선택하는 방법이 여러 가지인 경우에도, 선택할 수 있는 포텟몬 종류 개수의 최댓값 하나만 return 하면 됩니다.",
+    "images": [],
     "examples": [
       {
-        "input": "levelOrder = [3, 9, 20, -1, -1, 15, 7]",
-        "output": "3"
-      },
-      {
-        "input": "levelOrder = [1, -1, 2]",
-        "output": "2"
+        "input": "nums: [3,3,3,2,2,2]",
+        "output": "2",
+        "explanation": "6마리의 포텟몬이 있으므로, 3마리의 포텟몬을 골라야 합니다\n가장 많은 종류의 포텟몬을 고르기 위해서는 3번 포텟몬 한 마리와 2번 포텟몬 두 마리를 고르거나, 혹은 3번 포텟몬 두 마리와 2번 포텟몬 한 마리를 고르면 됩니다. 따라서 최대 고를 수 있는 포텟몬 종류의 수는 2입니다."
       }
     ],
     "starter": {
-      "python": "def max_depth(level_order):\n    # TODO\n    pass\n",
-      "java": "static int maxDepth(int[] levelOrder) {\n    // TODO\n    return 0;\n}\n",
-      "cpp": "int maxDepth(vector<int> levelOrder) {\n    // TODO\n    return 0;\n}\n"
+      "python": "def num_potatomon(nums):\n    # TODO\n    pass\n",
+      "java": "static int NumPotatomon(int[] nums):\n    # TODO\n    return 0;\n",
+      "cpp": "int num_potatomon(vector<int> nums):\n    # TODO\n    return 0;\n"
     }
   },
   {
     "id": 3,
-    "slug": "middle-of-the-linked-list",
-    "title": "Middle of the Linked List",
+    "slug": "more-spicy",
+    "title": "더 맵게",
     "difficulty": "easy",
-    "category": "linked-list",
-    "functionName": "middleNode",
-    "description": "연결 리스트의 노드 값이 순서대로 담긴 배열 vals가 주어집니다. 중앙 노드의 값을 반환하세요. 노드 수가 짝수이면 두 중앙 중 뒤쪽을 반환합니다.\n\n원래 문제는 연결 리스트를 전제로 하지만, 여기서는 배열로 단순화되어 주어집니다. 투 포인터(slow/fast) 패턴을 배열에 적용해 보세요.",
+    "category": "heap",
+    "functionName": "num_mix",
+    "description": "매운 것을 좋아하는 지니는 모든 음식의 스코빌 지수를 K 이상으로 만들고 싶습니다. 모든 음식의 스코빌 지수를 K 이상으로 만들기 위해 지니는 스코빌 지수가 가장 낮은 두 개의 음식을 아래와 같이 특별한 방법으로 섞어 새로운 음식을 만듭니다.\n```섞은 음식의 스코빌 지수 = 가장 맵지 않은 음식의 스코빌 지수 + (두 번째로 맵지 않은 음식의 스코빌 지수 * 2)```\n지니는 모든 음식의 스코빌 지수가 K 이상이 될 때까지 반복하여 섞습니다.\n지니가 가진 음식의 스코빌 지수를 담은 배열 scoville과 원하는 스코빌 지수 K가 주어질 때, 모든 음식의 스코빌 지수를 K 이상으로 만들기 위해 섞어야 하는 최소 횟수를 return 하도록 solution 함수를 작성해주세요.\n\n제한 사항\n- scoville의 길이는 2 이상 1,000,000 이하입니다.\n- K는 0 이상 1,000,000,000 이하입니다.\n- scoville의 원소는 각각 0 이상 1,000,000 이하입니다.\n- 모든 음식의 스코빌 지수를 K 이상으로 만들 수 없는 경우에는 -1을 return 합니다.",
     "examples": [
       {
-        "input": "vals = [1, 2, 3, 4, 5]",
-        "output": "3"
-      },
-      {
-        "input": "vals = [1, 2, 3, 4, 5, 6]",
-        "output": "4"
+        "input": "scoville = [1, 2, 3, 9, 10, 12], K = 7",
+        "output": "2",
+        "explanation": "1. 스코빌 지수가 1인 음식과 2인 음식을 섞으면 음식의 스코빌 지수가 아래와 같이 됩니다.\n새로운 음식의 스코빌 지수 = 1 + (2 * 2) = 5\n가진 음식의 스코빌 지수 = [5, 3, 9, 10, 12]\n\n2. 스코빌 지수가 3인 음식과 5인 음식을 섞으면 음식의 스코빌 지수가 아래와 같이 됩니다.\n새로운 음식의 스코빌 지수 = 3 + (5 * 2) = 13\n가진 음식의 스코빌 지수 = [13, 9, 10, 12]\n\n모든 음식의 스코빌 지수가 7 이상이 되었고 이때 섞은 횟수는 2회입니다."
       }
     ],
     "starter": {
-      "python": "def middle_node(vals):\n    # TODO\n    pass\n",
-      "java": "static int middleNode(int[] vals) {\n    // TODO\n    return 0;\n}\n",
-      "cpp": "int middleNode(vector<int> vals) {\n    // TODO\n    return 0;\n}\n"
+      "python": "def num_mix(scoville, K):\n    # TODO\n    pass\n",
+      "java": "static int NumMix(int[] scoville, int K) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int num_mix(vector<int> scoville, int K) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 4,
-    "slug": "contains-duplicate",
-    "title": "Contains Duplicate",
+    "slug": "h-index",
+    "title": "H-Index",
     "difficulty": "easy",
-    "category": "hashmap",
-    "functionName": "containsDuplicate",
-    "description": "정수 배열 nums가 주어질 때, 어떤 값이 두 번 이상 등장하면 true, 모든 값이 서로 다르면 false를 반환하세요.\n\n해시셋을 사용한 단일 스캔으로 O(n) 시간에 해결할 수 있습니다.",
+    "category": "sort",
+    "functionName": "hIndex",
+    "description": "H-Index는 과학자의 생산성과 영향력을 나타내는 지표입니다. 어느 과학자의 H-Index를 나타내는 값인 h를 구하려고 합니다. H-Index는 다음과 같이 구합니다.\n\n어떤 과학자가 발표한 논문 n편 중, h번 이상 인용된 논문이 h편 이상이고 나머지 논문이 h번 이하 인용되었다면 h의 최댓값이 이 과학자의 H-Index입니다.\n어떤 과학자가 발표한 논문의 인용 횟수를 담은 배열 citations가 매개변수로 주어질 때, 이 과학자의 H-Index를 return 하도록 solution 함수를 작성해주세요.\n\n제한 사항\n- 과학자가 발표한 논문의 수는 1편 이상 1,000편 이하입니다.\n- 논문별 인용 횟수는 0회 이상 10,000회 이하입니다.",
     "examples": [
       {
-        "input": "nums = [1, 2, 3, 1]",
-        "output": "true"
+        "input": "citations = [3, 0, 6, 1, 5]",
+        "output": "3",
+        "explanation": "이 과학자가 발표한 논문의 수는 5편이고, 그중 3편의 논문은 3회 이상 인용되었습니다. 그리고 나머지 2편의 논문은 3회 이하 인용되었기 때문에 이 과학자의 H-Index는 3입니다."
       },
       {
-        "input": "nums = [1, 2, 3, 4]",
-        "output": "false"
+        "input": "citations = [1, 2, 3, 4]",
+        "output": "3",
+        "explanation": "이 과학자가 발표한 논문의 수는 4편이고, 그중 3편의 논문은 3회 이상 인용되었습니다. 그리고 나머지 1편의 논문은 3회 이하 인용되었기 때문에 이 과학자의 H-Index는 3입니다."
       }
     ],
     "starter": {
-      "python": "def contains_duplicate(nums):\n    # TODO\n    pass\n",
-      "java": "static boolean containsDuplicate(int[] nums) {\n    // TODO\n    return false;\n}\n",
-      "cpp": "bool containsDuplicate(vector<int> nums) {\n    // TODO\n    return false;\n}\n"
+      "python": "def hIndex(citations):\n    # TODO\n    pass\n",
+      "java": "static int hIndex(int[] citations) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int hIndex(vector<int> citations) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 5,
-    "slug": "binary-search",
-    "title": "Binary Search",
+    "slug": "carpet-size",
+    "title": "카펫",
     "difficulty": "easy",
-    "category": "binary-search",
-    "functionName": "binarySearch",
-    "description": "오름차순으로 정렬된 정수 배열 nums와 정수 target이 주어집니다. target이 존재하면 해당 인덱스를, 없으면 -1을 반환하세요. 시간 복잡도는 O(log n)이어야 합니다.",
+    "category": "brute-force",
+    "functionName": "carpet_size",
+    "description": "어스는 카펫을 사러 갔다가 아래 그림과 같이 중앙에는 노란색으로 칠해져 있고 테두리 1줄은 갈색으로 칠해져 있는 격자 모양 카펫을 봤습니다.\n[이미지1]\n어스는 집으로 돌아와서 아까 본 카펫의 노란색과 갈색으로 색칠된 격자의 개수는 기억했지만, 전체 카펫의 크기는 기억하지 못했습니다.\n어스가 본 카펫에서 갈색 격자의 수 brown, 노란색 격자의 수 yellow가 매개변수로 주어질 때 카펫의 가로, 세로 크기를 순서대로 배열에 담아 return 하도록 solution 함수를 작성해주세요.\n\n제한 사항\n- 갈색 격자의 수 brown은 8 이상 5,000 이하인 자연수입니다.\n- 노란색 격자의 수 yellow는 1 이상 2,000,000 이하인 자연수입니다.\n- 카펫의 가로 길이는 세로 길이와 같거나, 세로 길이보다 깁니다.",
+    "images": [
+      {
+        "src": "data/images/p5_1.png",
+        "width": "30%"
+      }
+    ],
     "examples": [
       {
-        "input": "nums = [-1, 0, 3, 5, 9, 12], target = 9",
-        "output": "4"
+        "input": "brown = 10, yellow = 2",
+        "output": "[4, 3]",
+        "explanation": "카펫의 가로 길이는 4, 세로 길이는 3입니다."
       },
       {
-        "input": "nums = [-1, 0, 3, 5, 9, 12], target = 2",
-        "output": "-1"
+        "input": "brown = 8, yellow = 1",
+        "output": "[3, 3]",
+        "explanation": "카펫의 가로 길이는 3, 세로 길이는 3입니다."
+      },
+      {
+        "input": "brown = 24, yellow = 24",
+        "output": "[8, 6]",
+        "explanation": "카펫의 가로 길이는 8, 세로 길이는 6입니다."
       }
     ],
     "starter": {
-      "python": "def binary_search(nums, target):\n    # TODO\n    pass\n",
-      "java": "static int binarySearch(int[] nums, int target) {\n    // TODO\n    return -1;\n}\n",
-      "cpp": "int binarySearch(vector<int> nums, int target) {\n    // TODO\n    return -1;\n}\n"
+      "python": "def carpet_size(brown, yellow):\n    # TODO\n    pass\n",
+      "java": "static int[] carpet_size(int brown, int yellow) {\n    // TODO\n    return new int[]{-1, -1};\n}\n",
+      "cpp": "int[] carpet_size(int brown, int yellow) {\n    // TODO\n    return new int[]{-1, -1};\n}\n"
     }
   },
   {
     "id": 6,
-    "slug": "nth-ugly-number",
-    "title": "Ugly Number II",
+    "slug": "joystick",
+    "title": "조이스틱",
     "difficulty": "medium",
-    "category": "heap",
-    "functionName": "nthUglyNumber",
-    "description": "ugly number는 소인수가 2, 3, 5뿐인 양의 정수입니다 (1 포함). n번째 ugly number를 반환하세요.\n\n대표적인 풀이는 최소 힙으로 지금까지 만든 ugly number에 2·3·5를 곱해가며 꺼내거나, 세 포인터 DP로 다음 ugly number를 순차 생성하는 것입니다.",
+    "category": "greedy",
+    "functionName": "joystick",
+    "description": "조이스틱으로 알파벳 이름을 완성하세요. 맨 처음엔 A로만 이루어져 있습니다.\nex) 완성해야 하는 이름이 세 글자면 AAA, 네 글자면 AAAA\n\n조이스틱을 각 방향으로 움직이면 아래와 같습니다.\n```▲ - 다음 알파벳\n▼ - 이전 알파벳 (A에서 아래쪽으로 이동하면 Z로)\n◀ - 커서를 왼쪽으로 이동 (첫 번째 위치에서 왼쪽으로 이동하면 마지막 문자에 커서)\n▶ - 커서를 오른쪽으로 이동 (마지막 위치에서 오른쪽으로 이동하면 첫 번째 문자에 커서)\n```\n예를 들어 아래의 방법으로 'JAZ'를 만들 수 있습니다.\n```- 첫 번째 위치에서 조이스틱을 위로 9번 조작하여 J를 완성합니다.\n- 조이스틱을 왼쪽으로 1번 조작하여 커서를 마지막 문자 위치로 이동시킵니다.\n- 마지막 위치에서 조이스틱을 아래로 1번 조작하여 Z를 완성합니다.\n따라서 11번 이동시켜 'JAZ'를 만들 수 있고, 이때가 최소 이동입니다.```\n만들고자 하는 이름 name이 매개변수로 주어질 때, 이름에 대해 조이스틱 조작 횟수의 최솟값을 return 하도록 solution 함수를 만드세요.\n\n제한 사항\n- name은 알파벳 대문자로만 이루어져 있습니다.\n- name의 길이는 1 이상 20 이하입니다.",
     "examples": [
       {
-        "input": "n = 10",
-        "output": "12"
+        "input": "name = \"JERON\"",
+        "output": "56"
       },
       {
-        "input": "n = 1",
-        "output": "1"
+        "input": "name = \"JAN\"",
+        "output": "23"
       }
     ],
     "starter": {
-      "python": "def nth_ugly_number(n):\n    # TODO\n    pass\n",
-      "java": "static int nthUglyNumber(int n) {\n    // TODO\n    return 0;\n}\n",
-      "cpp": "int nthUglyNumber(int n) {\n    // TODO\n    return 0;\n}\n"
+      "python": "def joystick(name):\n    # TODO\n    pass\n",
+      "java": "static int oystick(String name) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int joystick(string name) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
     "id": 7,
-    "slug": "longest-common-prefix",
-    "title": "Longest Common Prefix",
-    "difficulty": "easy",
-    "category": "string",
-    "functionName": "longestCommonPrefix",
-    "description": "문자열 배열 strs가 주어질 때 모든 문자열에 공통으로 들어 있는 가장 긴 접두사(prefix)를 반환하세요. 공통 접두사가 없다면 빈 문자열 \"\"을 반환합니다.",
+    "slug": "way-to-school",
+    "title": "등굣길",
+    "difficulty": "hard",
+    "category": "dynamic-programming",
+    "functionName": "num_ways",
+    "description": "계속되는 폭우로 일부 지역이 물에 잠겼습니다. 물에 잠기지 않은 지역을 통해 학교를 가려고 합니다. 집에서 학교까지 가는 길은 m x n 크기의 격자모양으로 나타낼 수 있습니다.\n아래 그림은 m = 4, n = 3 인 경우입니다.\n[이미지1]\n\n가장 왼쪽 위, 즉 집이 있는 곳의 좌표는 (1, 1)로 나타내고 가장 오른쪽 아래, 즉 학교가 있는 곳의 좌표는 (m, n)으로 나타냅니다.\n격자의 크기 m, n과 물이 잠긴 지역의 좌표를 담은 2차원 배열 puddles이 매개변수로 주어집니다. 오른쪽과 아래쪽으로만 움직여 집에서 학교까지 갈 수 있는 최단경로의 개수를 1,000,000,007로 나눈 나머지를 return 하도록 solution 함수를 작성해주세요.\n\n제한 사항\n- 격자의 크기 m, n은 1 이상 100 이하인 자연수입니다.\n- m과 n이 모두 1인 경우는 입력으로 주어지지 않습니다.\n- 물에 잠긴 지역은 0개 이상 10개 이하입니다.\n- 집과 학교가 물에 잠긴 경우는 입력으로 주어지지 않습니다.",
     "examples": [
       {
-        "input": "strs = [\"flower\", \"flow\", \"flight\"]",
-        "output": "\"fl\""
+        "input": "m = 4, n = 3, puddles = [[2, 2]]",
+        "output": "4",
+        "explanation": "[이미지2]"
+      }
+    ],
+    "images": [
+      {
+        "src": "data/images/p7_1.png",
+        "width": "30%"
       },
       {
-        "input": "strs = [\"dog\", \"racecar\", \"car\"]",
-        "output": "\"\""
+        "src": "data/images/p7_2.png",
+        "width": "30%"
       }
     ],
     "starter": {
-      "python": "def longest_common_prefix(strs):\n    # TODO\n    pass\n",
-      "java": "static String longestCommonPrefix(String[] strs) {\n    // TODO\n    return \"\";\n}\n",
-      "cpp": "string longestCommonPrefix(vector<string> strs) {\n    // TODO\n    return \"\";\n}\n"
+      "python": "def num_ways(m, n, puddles):\n    # TODO\n    pass\n",
+      "java": "static int num_ways(int m, int n, int[][] puddles) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int num_ways(int m, int n, vector<vector<int>>& puddles) {\n    // TODO\n    return 0;\n}\n"
     }
   },
   {
@@ -287,26 +309,33 @@
   },
   {
     "id": 13,
-    "slug": "single-number",
-    "title": "Single Number",
-    "difficulty": "easy",
-    "category": "bit-manipulation",
-    "functionName": "singleNumber",
-    "description": "정수 배열 nums에서 '하나만 한 번 나오고, 나머지 모든 값은 정확히 두 번' 나옵니다. 한 번만 나오는 값을 찾아 반환하세요.\n\n시간 O(n), 공간 O(1) 풀이가 요구됩니다. XOR 연산의 성질 a^a = 0, a^0 = a를 활용하세요.",
-    "examples": [
+    "slug": "number-of-rooms",
+    "title": "방의 갯수",
+    "difficulty": "hard",
+    "category": "graph",
+    "functionName": "numRooms",
+    "description": "원점(0,0)에서 시작해서 아래처럼 숫자가 적힌 방향으로 이동하며 선을 긋습니다.\n[이미지1]\nex) 1일때는 오른쪽 위로 이동\n\n그림을 그릴 때, 사방이 막히면 방하나로 카운트합니다.\n이동하는 방향이 담긴 배열 arrows가 매개변수로 주어질 때, 방의 갯수를 return 하도록 solution 함수를 작성하세요.\n\n제한사항\n배열 arrows의 크기는 1 이상 100,000 이하 입니다.\narrows의 원소는 0 이상 7 이하 입니다.\n방은 다른 방으로 둘러 싸여질 수 있습니다.",
+    "images": [
       {
-        "input": "nums = [2, 2, 1]",
-        "output": "1"
+        "src": "data/images/p1_1.png",
+        "width": "40%"
       },
       {
-        "input": "nums = [4, 1, 2, 1, 2]",
-        "output": "4"
+        "src": "data/images/p1_2.png",
+        "width": "40%"
+      }
+    ],
+    "examples": [
+      {
+        "input": "arrows: [6, 6, 6, 4, 4, 4, 2, 2, 2, 0, 0, 0, 1, 6, 5, 5, 3, 6, 0]",
+        "output": "3",
+        "explanation": "[이미지2]\n- (0,0) 부터 시작해서 6(왼쪽) 으로 3번 이동합니다. 그 이후 주어진 arrows 를 따라 그립니다.\n- 삼각형 (1), 큰 사각형(1), 평행사변형(1) = 3"
       }
     ],
     "starter": {
-      "python": "def single_number(nums):\n    # TODO\n    pass\n",
-      "java": "static int singleNumber(int[] nums) {\n    // TODO\n    return 0;\n}\n",
-      "cpp": "int singleNumber(vector<int> nums) {\n    // TODO\n    return 0;\n}\n"
+      "python": "def num_rooms(grid):\n    # TODO\n    pass\n",
+      "java": "static int numRooms(int[][] grid):\n    # TODO\n    return 0;\n",
+      "cpp": "int numRooms(vector<vector<int>> grid):\n    # TODO\n    return 0;\n"
     }
   },
   {

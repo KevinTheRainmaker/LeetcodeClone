@@ -35,9 +35,9 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 | 파라미터         | 값                                | 설명                                          |
 | ---------------- | --------------------------------- | --------------------------------------------- |
 | `set` / `set_id` | 숫자                              | 문제세트 번호 (`data/problem_sets.json` 기준) |
-| `mode`           | `memo` / `assistant` / `socratic` | 학습 모드                                     |
+| `mode`           | `memo` / `assistant` / `socratic` / `phase2` | 학습 모드. `phase2`는 IDE를 잠그고 설명 입력 오버레이를 띄움 |
 | `user_id`        | 문자열                            | 사용자 식별자 (로그 분리 저장용)              |
-| `lang`           | `javascript` / `python` / `cpp`   | 코드 언어 (기본: `javascript`)                |
+| `lang`           | `python` / `java` / `cpp`         | 코드 언어 (기본: `python`)                    |
 
 ## 아키텍처
 
@@ -47,9 +47,11 @@ LeetcodeClone/
 ├── app.js              # 전체 프론트 로직 (바닐라 JS)
 ├── styles.css          # 스타일
 ├── data/
-│   ├── problems.json       # 문제 정의 (id, description, examples, starter 코드)
+│   ├── problems.json       # 문제 정의 (id, description, examples, starter 코드, 선택적 images)
 │   ├── testcases.json      # 테스트케이스 (visible/hidden 구분)
-│   └── problem_sets.json   # 문제세트 (setId → problemIds 배열)
+│   ├── problem_sets.json   # 문제세트 (setId → problemIds 배열)
+│   ├── allowed_users.json  # 허용 사용자 ID 배열 (base ID만; _exp suffix 없이)
+│   └── images/             # 문제 삽입 이미지 (PNG/JPG) — problems.json에서 경로로 참조
 └── judge-server/
     ├── main.py             # FastAPI 앱 (채점 + 어시스턴트 + 로그)
     ├── requirements.txt    # fastapi, uvicorn
@@ -77,7 +79,7 @@ LeetcodeClone/
 
 ### 채점 서버 (`judge-server/main.py`)
 
-- `POST /judge`: JS(`node`), Python(`python3`), C++(`g++`) 코드를 임시 디렉터리에서 실행 후 결과 반환
+- `POST /judge`: Python(`python3`), Java(`javac`/`java`), C++(`g++`) 코드를 임시 디렉터리에서 실행 후 결과 반환
   - `run` 모드: visible 테스트케이스만
   - `submit` 모드: visible + hidden 테스트케이스 전체
 - `POST /assistant/chat`: OpenAI API 호출 (모델: `OPENAI_MODEL` env, 기본 `gpt-4o-mini`)
@@ -89,6 +91,7 @@ LeetcodeClone/
 **`problems.json`** 항목 필드:
 
 - `id`, `description`, `examples`, `starter` (언어별 초기 코드), `functionName`, `pythonFunctionName`
+- `images` (선택): `["data/images/pN-name.png", ...]` — 문제 설명에 렌더링되고 AI 어시스턴트 첫 user 메시지에도 base64로 동봉
 
 **`testcases.json`** 항목 필드:
 
@@ -103,3 +106,11 @@ LeetcodeClone/
 - 상단에는 진행도(`N / M`)만 표시, 문제 제목/난이도 미표시
 - 순차 진행만 가능 (이전 문제 복귀 불가)
 - Judge API base URL: localStorage `judgeApiBase` 값 또는 `http://127.0.0.1:8000`
+
+## AI 어시스턴트 플로우 (프론트 → `/api/chat` Vercel 프록시 → OpenRouter)
+
+- 채팅은 **문제별 세션**. 문제가 바뀌면 `aiHistory`와 패널 UI가 리셋됨.
+- AI 패널을 처음 열 때 `initChatSession()`이 문제 본문 + `images[]`(base64 인코딩)를 첫 user 메시지로 주입하고, 하드코딩 그리팅 `"안녕하세요, 이 문제를 풀기 위해 도움이 필요한가요?"`를 첫 assistant 응답으로 넣는다.
+- 이후 유저 질문만 히스토리에 append. 모델은 히스토리의 첫 user 메시지에서 문제(이미지 포함)를 참조.
+- 긴 대화에서도 앞 2개(문제 + 그리팅)는 항상 요청에 포함 — `sendAI()`의 `head + tail` 슬라이싱 참고.
+- 기본 모델: `anthropic/claude-sonnet-4.6` (비전 지원). localStorage `openrouter_model`로 오버라이드 가능.
