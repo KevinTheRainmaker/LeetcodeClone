@@ -1,7 +1,7 @@
-// Vercel Serverless Function — OpenRouter proxy.
+// Vercel Serverless Function — OpenRouter streaming proxy.
 // Uses server-side secret OPENROUTER_API_KEY so the key never reaches the browser.
 
-export const config = { maxDuration: 15 };
+export const config = { maxDuration: 30 };
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -54,20 +54,40 @@ export default async function handler(req, res) {
           messages,
           temperature,
           max_tokens: maxTokens,
+          stream: true,
         }),
       },
     );
 
-    const text = await upstream.text();
-    res
-      .status(upstream.status)
-      .setHeader("Content-Type", "application/json; charset=utf-8")
-      .send(text || "{}");
+    if (!upstream.ok) {
+      const errText = await upstream.text();
+      return res
+        .status(upstream.status)
+        .setHeader("Content-Type", "application/json")
+        .send(errText || "{}");
+    }
+
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("X-Accel-Buffering", "no");
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(decoder.decode(value, { stream: true }));
+    }
+    res.end();
   } catch (err) {
-    return res.status(502).json({
-      error: "Upstream request failed",
-      detail: String(err?.message || err),
-    });
+    if (!res.headersSent) {
+      return res.status(502).json({
+        error: "Upstream request failed",
+        detail: String(err?.message || err),
+      });
+    }
+    res.end();
   }
 }
 

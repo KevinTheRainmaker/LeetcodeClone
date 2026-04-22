@@ -210,7 +210,7 @@ window.addEventListener("beforeunload", () => {
         LOG_ENDPOINT,
         new Blob([JSON.stringify(row)], { type: "application/json" }),
       );
-    } catch {}
+    } catch { }
   }
 });
 
@@ -1112,7 +1112,7 @@ function buildSystemPrompt() {
   const p = currentProblem();
   const problemTitle = p ? p.title : "현재 문제";
   return [
-    `You are a coding tutor strictly scoped to ONE problem: "${problemTitle}".`,
+    `You are a helpful coding tutor strictly scoped to ONE problem: "${problemTitle}".`,
     "The full problem statement (and any images) was provided as the first user message in this conversation.",
     "",
     "STRICT SCOPE RULES:",
@@ -1122,8 +1122,6 @@ function buildSystemPrompt() {
     "",
     "RESPONSE STYLE:",
     "- Respond in the user's language (Korean if they write Korean).",
-    "- Be concise. Use short paragraphs and inline `code` where helpful.",
-    "- Give hints before full solutions unless the student explicitly asks for the answer.",
     "",
     `Language: ${state.lang}`,
     `Student's current code:\n\`\`\`${state.lang}\n${state.code.slice(0, 2000)}\n\`\`\``,
@@ -1166,12 +1164,43 @@ async function sendAI() {
         max_tokens: 800,
       }),
     });
-    const data = await res.json();
     if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
       pending.innerHTML = `<span class="term-err">오류 ${res.status}</span>: ${escapeHtml(data?.error?.message || JSON.stringify(data))}`;
       return;
     }
-    const text = data?.choices?.[0]?.message?.content || "(응답 비어 있음)";
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulated = "";
+    let buf = "";
+
+    pending.innerHTML = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") break;
+        try {
+          const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content;
+          if (delta) {
+            accumulated += delta;
+            pending.innerHTML = renderMarkdown(accumulated);
+            els.aiBody.scrollTop = els.aiBody.scrollHeight;
+          }
+        } catch (_) {
+          /* partial JSON — skip */
+        }
+      }
+    }
+
+    const text = accumulated || "(응답 비어 있음)";
     aiHistory.push({ role: "assistant", content: text });
     pending.innerHTML = renderMarkdown(text);
     logEvent("ai_assistant_reply", { text, model: getModel() });
