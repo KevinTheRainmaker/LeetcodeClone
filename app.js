@@ -93,12 +93,12 @@ function cacheEls() {
     "railAi",
     "railSettings",
     "aiPanel",
+    "aiHandle",
     "aiClose",
     "aiBody",
     "aiInput",
     "aiSend",
     "aiModel",
-    "aiResize",
     "tweaks",
     "userChip",
     "userChipName",
@@ -923,149 +923,6 @@ function closeAI() {
   els.aiPanel.classList.remove("open");
 }
 
-function initAiResize() {
-  const handle = els.aiResize;
-  const panel = els.aiPanel;
-  if (!handle || !panel) return;
-
-  const MIN_W = 320;
-  const MIN_H = 280;
-  const KEY = "cp_ai_size";
-
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (saved && typeof saved.w === "number" && typeof saved.h === "number") {
-      panel.style.width = saved.w + "px";
-      panel.style.height = saved.h + "px";
-      panel.style.maxHeight = "none";
-    }
-  } catch (_) {
-    /* ignore */
-  }
-
-  let sx = 0,
-    sy = 0,
-    sw = 0,
-    sh = 0,
-    st = 0,
-    useTop = false;
-
-  function onMove(ev) {
-    const dx = ev.clientX - sx;
-    const dy = sy - ev.clientY;
-    const maxW = Math.min(window.innerWidth - 80, 1200);
-    const maxH = window.innerHeight - 32;
-    const w = Math.max(MIN_W, Math.min(maxW, sw + dx));
-    const h = Math.max(MIN_H, Math.min(maxH, sh + dy));
-    panel.style.width = w + "px";
-    panel.style.height = h + "px";
-    panel.style.maxHeight = "none";
-
-    // top-anchored 상태에서 높이가 늘면 상단을 위로 올려야 위쪽으로 확장됨
-    if (useTop) {
-      const newTop = Math.max(4, st - (h - sh));
-      panel.style.top = newTop + "px";
-    }
-  }
-
-  function onUp() {
-    window.removeEventListener("pointermove", onMove);
-    document.body.style.userSelect = "";
-    const rect = panel.getBoundingClientRect();
-    localStorage.setItem(
-      KEY,
-      JSON.stringify({
-        w: Math.round(rect.width),
-        h: Math.round(rect.height),
-      }),
-    );
-  }
-
-  handle.addEventListener("pointerdown", (ev) => {
-    ev.preventDefault();
-    sx = ev.clientX;
-    sy = ev.clientY;
-    const rect = panel.getBoundingClientRect();
-    sw = rect.width;
-    sh = rect.height;
-    st = rect.top;
-    useTop = panel.style.bottom === "auto";
-    document.body.style.userSelect = "none";
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp, { once: true });
-  });
-}
-
-function initAiDrag() {
-  const head = document.querySelector(".ai-head");
-  const panel = els.aiPanel;
-  if (!head || !panel) return;
-
-  const POS_KEY = "cp_ai_pos";
-
-  function clamp(val, min, max) {
-    return Math.max(min, Math.min(max, val));
-  }
-
-  function applyPos(left, top) {
-    const rect = panel.getBoundingClientRect();
-    const maxL = window.innerWidth - rect.width - 4;
-    const maxT = window.innerHeight - rect.height - 4;
-    panel.style.left = clamp(left, 4, maxL) + "px";
-    panel.style.top = clamp(top, 4, maxT) + "px";
-    panel.style.bottom = "auto";
-  }
-
-  try {
-    const saved = JSON.parse(localStorage.getItem(POS_KEY) || "null");
-    if (
-      saved &&
-      typeof saved.left === "number" &&
-      typeof saved.top === "number"
-    ) {
-      panel.style.left = saved.left + "px";
-      panel.style.top = saved.top + "px";
-      panel.style.bottom = "auto";
-    }
-  } catch (_) {
-    /* ignore */
-  }
-
-  let ox = 0,
-    oy = 0;
-
-  function onMove(ev) {
-    const rect = panel.getBoundingClientRect();
-    applyPos(ev.clientX - ox, ev.clientY - oy);
-  }
-
-  function onUp() {
-    window.removeEventListener("pointermove", onMove);
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-    const rect = panel.getBoundingClientRect();
-    localStorage.setItem(
-      POS_KEY,
-      JSON.stringify({
-        left: Math.round(rect.left),
-        top: Math.round(rect.top),
-      }),
-    );
-  }
-
-  head.addEventListener("pointerdown", (ev) => {
-    if (ev.target.closest(".ai-close, .ai-resize")) return;
-    ev.preventDefault();
-    const rect = panel.getBoundingClientRect();
-    ox = ev.clientX - rect.left;
-    oy = ev.clientY - rect.top;
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "grabbing";
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp, { once: true });
-  });
-}
-
 async function fetchAsDataUrl(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1395,14 +1252,16 @@ function wireUp() {
     logEvent("reset_code");
   });
 
-  // Rail: AI
-  els.railAi.addEventListener("click", () => {
+  // AI drawer: handle + rail button both toggle
+  function toggleAI() {
     if (els.aiPanel.classList.contains("open")) closeAI();
     else {
       els.tweaks.classList.remove("open");
       openAI();
     }
-  });
+  }
+  els.aiHandle.addEventListener("click", toggleAI);
+  els.railAi.addEventListener("click", toggleAI);
   els.aiClose.addEventListener("click", closeAI);
   els.aiSend.addEventListener("click", sendAI);
   els.aiInput.addEventListener("keydown", (e) => {
@@ -1416,8 +1275,6 @@ function wireUp() {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   });
-  initAiResize();
-  initAiDrag();
 
   // Rail: tweaks
   els.railSettings.addEventListener("click", (e) => {

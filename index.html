@@ -202,37 +202,45 @@
       </div>
     </div>
 
-    <!-- AI panel -->
-    <div class="ai-panel" id="aiPanel" role="dialog" aria-label="AI Assistant">
-      <div
-        class="ai-resize"
-        id="aiResize"
-        title="드래그해서 크기 조정"
-        aria-label="Resize"
-      ></div>
-      <div class="ai-head">
-        <span class="orb"></span>
-        <div>
-          <div class="title">AI Assistant</div>
-          <div class="subtitle">
-            OpenRouter · <span id="aiModel">anthropic/claude-3.5-haiku</span>
-          </div>
-        </div>
-        <span class="ai-close" id="aiClose">✕</span>
+    <!-- AI Drawer -->
+    <div
+      class="ai-drawer"
+      id="aiPanel"
+      role="complementary"
+      aria-label="AI Assistant"
+    >
+      <div class="ai-handle" id="aiHandle" title="AI Assistant">
+        <span class="ai-handle-orb"></span>
+        <span class="ai-handle-lbl">AI</span>
+        <svg class="ai-handle-chev" viewBox="0 0 24 24">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
       </div>
-      <div class="ai-body" id="aiBody"></div>
-      <div class="ai-foot">
-        <textarea
-          class="ai-input"
-          id="aiInput"
-          placeholder="질문을 입력하세요…"
-          rows="1"
-        ></textarea>
-        <button class="ai-send" id="aiSend" title="보내기">
-          <svg viewBox="0 0 24 24">
-            <path d="M4 12l16-8-6 18-3-8-7-2z" />
-          </svg>
-        </button>
+      <div class="ai-content">
+        <div class="ai-head">
+          <span class="orb"></span>
+          <div>
+            <div class="title">AI Assistant</div>
+            <div class="subtitle">
+              OpenRouter · <span id="aiModel">anthropic/claude-3.5-haiku</span>
+            </div>
+          </div>
+          <span class="ai-close" id="aiClose">✕</span>
+        </div>
+        <div class="ai-body" id="aiBody"></div>
+        <div class="ai-foot">
+          <textarea
+            class="ai-input"
+            id="aiInput"
+            placeholder="질문을 입력하세요…"
+            rows="1"
+          ></textarea>
+          <button class="ai-send" id="aiSend" title="보내기">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 12l16-8-6 18-3-8-7-2z" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
