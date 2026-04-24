@@ -5,28 +5,19 @@ import shutil
 import subprocess
 import tempfile
 import time
-import urllib.error
-import urllib.request
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 PROBLEMS_PATH = DATA_DIR / "problems.json"
 TESTCASES_PATH = DATA_DIR / "testcases.json"
-ASSISTANT_DIR = Path(__file__).resolve().parent / "assistant_data"
-SESSIONS_DIR = ASSISTANT_DIR / "sessions"
-LOGS_DIR = ASSISTANT_DIR / "logs"
-
 TIME_LIMIT_SEC = 2.0
-ASSISTANT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 SHARED_TOKEN = os.getenv("JUDGE_SHARED_TOKEN", "").strip()
 PUBLIC_PATHS = {"/health", "/"}
 
@@ -35,9 +26,6 @@ if _origins_env:
     _allowed_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
 else:
     _allowed_origins = ["*"]
-
-SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="LeetCode Clone Judge Server")
 app.add_middleware(
@@ -71,14 +59,6 @@ class JudgeRequest(BaseModel):
     language: str
     code: str
     mode: str = "run"  # run | submit
-
-
-class ChatRequest(BaseModel):
-    sessionId: str
-    question: str
-    problemId: Optional[int] = None
-    language: Optional[str] = None
-    userId: Optional[str] = None
 
 
 class ClientLogRequest(BaseModel):
@@ -445,70 +425,6 @@ def parse_line_results(proc: subprocess.CompletedProcess, cases: List[Dict[str, 
     }
 
 
-def session_path(session_id: str) -> Path:
-    return SESSIONS_DIR / f"{session_id}.json"
-
-
-def log_path(session_id: str) -> Path:
-    return LOGS_DIR / f"{session_id}.jsonl"
-
-
-def load_session_messages(session_id: str) -> List[Dict[str, str]]:
-    p = session_path(session_id)
-    if not p.exists():
-        return []
-    return json.loads(p.read_text(encoding="utf-8")).get("messages", [])
-
-
-def save_session_messages(session_id: str, messages: List[Dict[str, str]]):
-    p = session_path(session_id)
-    p.write_text(json.dumps({"sessionId": session_id, "messages": messages}, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def append_log(session_id: str, role: str, content: str):
-    lp = log_path(session_id)
-    row = {
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "sessionId": session_id,
-        "role": role,
-        "content": content,
-    }
-    with lp.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
-
-
-def call_openai_chat(messages: List[Dict[str, str]]) -> str:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not set on judge-server")
-
-    payload = {
-        "model": ASSISTANT_MODEL,
-        "messages": messages,
-        "temperature": 0.2,
-    }
-
-    req = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-        method="POST",
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            return body["choices"][0]["message"]["content"].strip()
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="ignore")[:1000]
-        raise HTTPException(status_code=500, detail=f"OpenAI API error: {detail}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OpenAI call failed: {e}")
-
-
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -549,58 +465,6 @@ def judge(req: JudgeRequest):
 
     out["runtimeMs"] = out.get("runtimeMs") or int((time.perf_counter() - started) * 1000)
     return out
-
-
-@app.post("/assistant/session/new")
-def assistant_session_new():
-    sid = str(uuid.uuid4())
-    save_session_messages(sid, [])
-    return {"sessionId": sid}
-
-
-@app.post("/assistant/chat")
-def assistant_chat(req: ChatRequest):
-    sid = req.sessionId.strip()
-    if not sid:
-        raise HTTPException(status_code=400, detail="sessionId is required")
-    question = req.question.strip()
-    if not question:
-        raise HTTPException(status_code=400, detail="question is required")
-
-    history = load_session_messages(sid)
-
-    system_msg = (
-        "당신은 코딩 튜터입니다. 한국어로 답변하세요. "
-        "요청이 알고리즘/코딩 질문이면 핵심 아이디어, 복잡도, 코드 스니펫을 제공하세요. "
-        "설명은 간결하되 실전적으로 작성하세요."
-    )
-
-    context = f"problemId={req.problemId}, language={req.language}" if req.problemId else ""
-    user_text = f"[{context}]\n{question}" if context else question
-
-    messages = [{"role": "system", "content": system_msg}] + history + [{"role": "user", "content": user_text}]
-
-    answer = call_openai_chat(messages)
-
-    new_history = history + [
-        {"role": "user", "content": user_text},
-        {"role": "assistant", "content": answer},
-    ]
-    new_history = new_history[-20:]
-    save_session_messages(sid, new_history)
-
-    append_log(sid, "user", user_text)
-    append_log(sid, "assistant", answer)
-
-    return {"sessionId": sid, "answer": answer}
-
-
-@app.get("/assistant/logs/{session_id}", response_class=PlainTextResponse)
-def assistant_logs(session_id: str):
-    lp = log_path(session_id)
-    if not lp.exists():
-        raise HTTPException(status_code=404, detail="Log not found")
-    return lp.read_text(encoding="utf-8")
 
 
 _SAFE_ID = re.compile(r"[^A-Za-z0-9_\-]")

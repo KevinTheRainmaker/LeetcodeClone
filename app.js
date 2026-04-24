@@ -210,7 +210,7 @@ window.addEventListener("beforeunload", () => {
         LOG_ENDPOINT,
         new Blob([JSON.stringify(row)], { type: "application/json" }),
       );
-    } catch { }
+    } catch {}
   }
 });
 
@@ -247,7 +247,12 @@ async function loadData() {
       (x) => Number(x.setId) === Number(runArgs.setId),
     );
     if (match) {
-      const setIds = new Set(match.problemIds || []);
+      const isPhase2 = runArgs.mode === "phase2";
+      const ids =
+        isPhase2 && match.phase2ProblemIds
+          ? match.phase2ProblemIds
+          : match.problemIds;
+      const setIds = new Set(ids || []);
       pool = state.problems.filter((x) => setIds.has(x.id)).map((x) => x.id);
     }
   }
@@ -941,18 +946,26 @@ function initAiResize() {
   let sx = 0,
     sy = 0,
     sw = 0,
-    sh = 0;
+    sh = 0,
+    st = 0,
+    useTop = false;
 
   function onMove(ev) {
     const dx = ev.clientX - sx;
     const dy = sy - ev.clientY;
-    const maxW = Math.min(window.innerWidth - 80, 960);
-    const maxH = Math.min(window.innerHeight - 32, 900);
+    const maxW = Math.min(window.innerWidth - 80, 1200);
+    const maxH = window.innerHeight - 32;
     const w = Math.max(MIN_W, Math.min(maxW, sw + dx));
     const h = Math.max(MIN_H, Math.min(maxH, sh + dy));
     panel.style.width = w + "px";
     panel.style.height = h + "px";
     panel.style.maxHeight = "none";
+
+    // top-anchored 상태에서 높이가 늘면 상단을 위로 올려야 위쪽으로 확장됨
+    if (useTop) {
+      const newTop = Math.max(4, st - (h - sh));
+      panel.style.top = newTop + "px";
+    }
   }
 
   function onUp() {
@@ -975,6 +988,8 @@ function initAiResize() {
     const rect = panel.getBoundingClientRect();
     sw = rect.width;
     sh = rect.height;
+    st = rect.top;
+    useTop = panel.style.bottom === "auto";
     document.body.style.userSelect = "none";
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp, { once: true });
@@ -1112,16 +1127,20 @@ function buildSystemPrompt() {
   const p = currentProblem();
   const problemTitle = p ? p.title : "현재 문제";
   return [
-    `You are a helpful coding tutor strictly scoped to ONE problem: "${problemTitle}".`,
+    `You are a helpful coding assistant strictly scoped to ONE problem: "${problemTitle}".`,
     "The full problem statement (and any images) was provided as the first user message in this conversation.",
     "",
     "STRICT SCOPE RULES:",
     `- You may ONLY discuss: the problem itself, its constraints, hints, approach, time/space complexity, code review, and debugging of the student's solution.`,
+    `- If the user explicitly asks you to solve the current problem (e.g. '문제를 풀어줘', '정답 코드 작성해줘', 'solution 알려줘'), you should answer directly with a correct approach and code for this problem.`,
     "- If the user asks about ANY other problem, topic, or task — even if it is a coding question — politely refuse in one sentence and redirect them back to the current problem.",
     `- Example refusal (Korean): \"죄송합니다, 저는 현재 문제 '${problemTitle}'에 대해서만 도움드릴 수 있습니다.\"`,
     "",
     "RESPONSE STYLE:",
     "- Respond in the user's language (Korean if they write Korean).",
+    "- If the user asks for hints, give hints.",
+    "- If the user asks for a full solution, provide the full solution directly.",
+    "- Be concise and focused on the current problem only.",
     "",
     `Language: ${state.lang}`,
     `Student's current code:\n\`\`\`${state.lang}\n${state.code.slice(0, 2000)}\n\`\`\``,

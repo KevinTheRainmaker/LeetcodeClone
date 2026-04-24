@@ -25,7 +25,10 @@
       "Bash(rm \"C:/Users/HCIS/.claude/plans/vast-imagging-quiche.md\")",
       "Read(//c/Users/HCIS/.claude/plans/**)",
       "Bash(python3)",
-      "Bash(g++ --version)"
+      "Bash(g++ --version)",
+      "Bash(awk '{print $2}')",
+      "Bash(python3 *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

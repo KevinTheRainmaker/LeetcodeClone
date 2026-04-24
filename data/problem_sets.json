@@ -4,19 +4,60 @@
       "setId": 1,
       "name": "Pattern Tour",
       "description": "16개 대표 유형을 한 번에 훑는 풀 투어 (A~P 카테고리 각 1문제)",
-      "problemIds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+      "problemIds": [
+        1,
+        9,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "phase2ProblemIds": [
+        2,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ]
     },
     {
       "setId": 2,
       "name": "Easy Foundations",
       "description": "기본기 다지기 (Easy 9문제)",
-      "problemIds": [1, 2, 3, 4, 6, 7, 8, 12, 15]
+      "problemIds": [
+        1,
+        2,
+        3,
+        4,
+        6
+      ],
+      "phase2ProblemIds": [
+        7,
+        8,
+        12,
+        15
+      ]
     },
     {
       "setId": 3,
       "name": "Medium Patterns",
       "description": "중급 패턴 (Medium 7문제)",
-      "problemIds": [5, 9, 10, 11, 13, 14, 16]
+      "problemIds": [
+        5,
+        9,
+        10,
+        11
+      ],
+      "phase2ProblemIds": [
+        13,
+        14,
+        16
+      ]
     }
   ]
 }
