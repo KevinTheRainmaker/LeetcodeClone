@@ -1211,7 +1211,9 @@ body {
 .ai-drawer {
   position: fixed;
   top: 44px;
-  left: 56px; /* rail 너비 이후부터 워크스페이스 전체 커버 */
+  left: calc(
+    50% + 28px
+  ); /* 우측 패널 시작점: rail(56px) 이후 워크스페이스 절반 */
   right: 0;
   bottom: 0;
   display: flex;
