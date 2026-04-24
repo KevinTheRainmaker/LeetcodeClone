@@ -1211,9 +1211,9 @@ body {
 .ai-drawer {
   position: fixed;
   top: 44px;
+  left: 56px; /* rail 너비 이후부터 워크스페이스 전체 커버 */
   right: 0;
   bottom: 0;
-  width: 456px; /* 36px handle + 420px content */
   display: flex;
   flex-direction: row;
   transform: translateX(calc(100% - 36px));
