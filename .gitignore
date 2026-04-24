@@ -10,3 +10,4 @@ __pycache__/
 .design_v*
 leetcode-pattern-500/
 CLAUDE.md
+.env*.local
