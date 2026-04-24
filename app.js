@@ -1280,7 +1280,7 @@ function wireUp() {
   els.aiClose.addEventListener("click", closeAI);
   els.aiSend.addEventListener("click", sendAI);
   els.aiInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       sendAI();
     }
