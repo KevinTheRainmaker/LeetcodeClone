@@ -1006,7 +1006,11 @@ function buildSystemPrompt() {
 
 function renderMarkdown(src) {
   let s = escapeHtml(src);
-  s = s.replace(/```([\s\S]*?)```/g, (_, c) => `<pre>${c}</pre>`);
+  s = s.replace(
+    /```([\s\S]*?)```/g,
+    (_, c) =>
+      `<div class="code-wrap"><button class="copy-btn" aria-label="Copy code">Copy</button><pre>${c}</pre></div>`,
+  );
   s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   s = s.replace(/\n/g, "<br>");
@@ -1262,6 +1266,17 @@ function wireUp() {
   }
   els.aiHandle.addEventListener("click", toggleAI);
   els.railAi.addEventListener("click", toggleAI);
+
+  // 코드 스니펫 복사 (이벤트 위임 — 스트리밍 중 innerHTML 교체와 무관)
+  els.aiBody.addEventListener("click", (e) => {
+    const btn = e.target.closest(".copy-btn");
+    if (!btn) return;
+    const code = btn.nextElementSibling?.textContent ?? "";
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = "Copied!";
+      setTimeout(() => (btn.textContent = "Copy"), 1500);
+    });
+  });
   els.aiClose.addEventListener("click", closeAI);
   els.aiSend.addEventListener("click", sendAI);
   els.aiInput.addEventListener("keydown", (e) => {
