@@ -1212,8 +1212,8 @@ body {
   position: fixed;
   top: 44px;
   left: calc(
-    50% + 28px
-  ); /* 우측 패널 시작점: rail(56px) 이후 워크스페이스 절반 */
+    50% - 8px
+  ); /* 패널 경계(50%+28px)에서 handle(36px)만큼 왼쪽 — content는 정확히 50% 경계부터 */
   right: 0;
   bottom: 0;
   display: flex;
