@@ -1211,9 +1211,7 @@ body {
 .ai-drawer {
   position: fixed;
   top: 44px;
-  left: calc(
-    50% - 8px
-  ); /* 패널 경계(50%+28px)에서 handle(36px)만큼 왼쪽 — content는 정확히 50% 경계부터 */
+  left: calc(50% - 8px); /* 패널 경계(50%+28px)에서 handle(36px)만큼 왼쪽 */
   right: 0;
   bottom: 0;
   display: flex;
@@ -1221,6 +1219,7 @@ body {
   transform: translateX(calc(100% - 36px));
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 40;
+  pointer-events: none; /* 기본 투명 — 실제 UI 요소에서만 개별 활성화 */
 }
 .ai-drawer.open {
   transform: translateX(0);
@@ -1298,6 +1297,7 @@ body {
   border-left: 1px solid var(--line-2);
   overflow: hidden;
   box-shadow: -6px 0 28px rgba(0, 0, 0, 0.5);
+  pointer-events: auto; /* 콘텐츠 영역은 클릭 활성화 */
 }
 
 .ai-head {
