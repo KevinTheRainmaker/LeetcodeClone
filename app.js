@@ -1006,14 +1006,25 @@ function buildSystemPrompt() {
 
 function renderMarkdown(src) {
   let s = escapeHtml(src);
-  s = s.replace(
-    /```([\s\S]*?)```/g,
-    (_, c) =>
-      `<div class="code-wrap"><button class="copy-btn" aria-label="Copy code">Copy</button><pre>${c}</pre></div>`,
-  );
+
+  // 코드 블록을 먼저 추출 (언어 식별자 제거, \n→<br> 치환에서 보호)
+  const blocks = [];
+  s = s.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, _lang, code) => {
+    const i = blocks.length;
+    blocks.push(code);
+    return `\x00BLOCK${i}\x00`;
+  });
+
   s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   s = s.replace(/\n/g, "<br>");
+
+  // 코드 블록 복원 (\n을 <br>로 바꾸지 않아 textContent 복사 시 줄바꿈 유지)
+  s = s.replace(/\x00BLOCK(\d+)\x00/g, (_, i) => {
+    const code = blocks[+i];
+    return `<div class="code-wrap"><button class="copy-btn" aria-label="Copy code">Copy</button><pre>${code}</pre></div>`;
+  });
+
   return s;
 }
 
