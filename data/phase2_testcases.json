@@ -1,473 +1,102 @@
 {
-  "202": {
-    "visible": [
-      {
-        "input": [[1, 2, 3, 4, 5]],
-        "expected": 3
-      },
-      {
-        "input": [[1, 2, 3, 4, 5, 6]],
-        "expected": 4
-      }
-    ],
-    "hidden": [
-      {
-        "input": [[1]],
-        "expected": 1
-      },
-      {
-        "input": [[1, 2]],
-        "expected": 2
-      },
-      {
-        "input": [[1, 2, 3]],
-        "expected": 2
-      },
-      {
-        "input": [[1, 2, 3, 4, 5, 6, 7, 8]],
-        "expected": 5
-      },
-      {
-        "input": [[5, 4, 3, 2, 1]],
-        "expected": 3
-      },
-      {
-        "input": [[10, 20]],
-        "expected": 20
-      }
-    ]
-  },
   "207": {
     "visible": [
       {
-        "input": [["pay", "attention", "practice", "attend"], "at"],
-        "expected": 2
-      },
-      {
-        "input": [["leetcode", "win", "loops", "success"], "code"],
-        "expected": 0
-      }
-    ],
-    "hidden": [
-      {
-        "input": [["apple", "app", "apricot", "application", "banana"], "app"],
-        "expected": 3
-      },
-      {
-        "input": [["hello", "help", "he", "h"], "he"],
-        "expected": 3
-      },
-      {
-        "input": [["a", "aa", "aaa", "aaaa"], "aa"],
-        "expected": 3
-      },
-      {
-        "input": [["prefix", "pre", "prelude", "post"], "pre"],
-        "expected": 3
-      },
-      {
-        "input": [["x", "y", "z"], "a"],
-        "expected": 0
-      },
-      {
-        "input": [["same", "same", "same"], "same"],
-        "expected": 3
-      }
-    ]
-  },
-  "208": {
-    "visible": [
-      {
-        "input": [[3, 2, 3]],
-        "expected": 3
-      },
-      {
-        "input": [[2, 2, 1, 1, 1, 2, 2]],
-        "expected": 2
-      }
-    ],
-    "hidden": [
-      {
-        "input": [[1]],
-        "expected": 1
-      },
-      {
-        "input": [[5, 5, 5, 5, 5]],
-        "expected": 5
-      },
-      {
-        "input": [[1, 2, 1, 2, 1]],
-        "expected": 1
-      },
-      {
-        "input": [[6, 5, 5]],
-        "expected": 5
-      },
-      {
-        "input": [[8, 8, 7, 7, 7, 7, 8, 8, 8]],
-        "expected": 8
-      },
-      {
-        "input": [[-1, -1, -1, 2, 3]],
-        "expected": -1
-      }
-    ]
-  },
-  "210": {
-    "visible": [
-      {
-        "input": [3],
-        "expected": ["((()))", "(()())", "(())()", "()(())", "()()()"]
-      },
-      {
-        "input": [1],
-        "expected": ["()"]
-      }
-    ],
-    "hidden": [
-      {
-        "input": [2],
-        "expected": ["(())", "()()"]
-      },
-      {
-        "input": [4],
-        "expected": [
-          "(((())))",
-          "((()()))",
-          "((())())",
-          "((()))()",
-          "(()(()))",
-          "(()()())",
-          "(()())()",
-          "(())(())",
-          "(())()()",
-          "()((()))",
-          "()(()())",
-          "()(())()",
-          "()()(())",
-          "()()()()"
-        ]
-      }
-    ]
-  },
-  "211": {
-    "visible": [
-      {
         "input": [
           [
-            ["1", "1", "0"],
-            ["1", "0", "0"],
-            ["0", "0", "1"]
-          ]
+            "pay",
+            "attention",
+            "practice",
+            "attend"
+          ],
+          "at"
         ],
         "expected": 2
       },
       {
         "input": [
           [
-            ["1", "1", "1"],
-            ["0", "1", "0"],
-            ["1", "1", "1"]
-          ]
+            "leetcode",
+            "win",
+            "loops",
+            "success"
+          ],
+          "code"
         ],
-        "expected": 1
+        "expected": 0
       }
     ],
     "hidden": [
       {
-        "input": [[["0"]]],
-        "expected": 0
-      },
-      {
-        "input": [[["1"]]],
-        "expected": 1
-      },
-      {
         "input": [
           [
-            ["1", "1", "1", "1", "0"],
-            ["1", "1", "0", "1", "0"],
-            ["1", "1", "0", "0", "0"],
-            ["0", "0", "0", "0", "0"]
-          ]
-        ],
-        "expected": 1
-      },
-      {
-        "input": [
-          [
-            ["1", "1", "0", "0", "0"],
-            ["1", "1", "0", "0", "0"],
-            ["0", "0", "1", "0", "0"],
-            ["0", "0", "0", "1", "1"]
-          ]
+            "apple",
+            "app",
+            "apricot",
+            "application",
+            "banana"
+          ],
+          "app"
         ],
         "expected": 3
       },
       {
         "input": [
           [
-            ["1", "0", "1", "0", "1"],
-            ["0", "1", "0", "1", "0"],
-            ["1", "0", "1", "0", "1"]
-          ]
+            "hello",
+            "help",
+            "he",
+            "h"
+          ],
+          "he"
         ],
-        "expected": 8
+        "expected": 3
       },
       {
         "input": [
           [
-            ["0", "0", "0"],
-            ["0", "0", "0"],
-            ["0", "0", "0"]
-          ]
+            "a",
+            "aa",
+            "aaa",
+            "aaaa"
+          ],
+          "aa"
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          [
+            "prefix",
+            "pre",
+            "prelude",
+            "post"
+          ],
+          "pre"
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          [
+            "x",
+            "y",
+            "z"
+          ],
+          "a"
         ],
         "expected": 0
-      }
-    ]
-  },
-  "212": {
-    "visible": [
-      {
-        "input": [[2, 2, 1]],
-        "expected": 1
-      },
-      {
-        "input": [[4, 1, 2, 1, 2]],
-        "expected": 4
-      }
-    ],
-    "hidden": [
-      {
-        "input": [[1]],
-        "expected": 1
-      },
-      {
-        "input": [[-1, -1, -2]],
-        "expected": -2
-      },
-      {
-        "input": [[7, 3, 5, 3, 7]],
-        "expected": 5
-      },
-      {
-        "input": [[0, 0, 99]],
-        "expected": 99
-      },
-      {
-        "input": [[100, 200, 200]],
-        "expected": 100
-      },
-      {
-        "input": [[5, 4, 3, 2, 1, 1, 2, 3, 4]],
-        "expected": 5
-      }
-    ]
-  },
-  "213": {
-    "visible": [
-      {
-        "input": [[1, 2, 3, 1]],
-        "expected": 4
-      },
-      {
-        "input": [[2, 7, 9, 3, 1]],
-        "expected": 12
-      }
-    ],
-    "hidden": [
-      {
-        "input": [[2, 1, 1, 2]],
-        "expected": 4
-      },
-      {
-        "input": [[1]],
-        "expected": 1
-      },
-      {
-        "input": [[100]],
-        "expected": 100
-      },
-      {
-        "input": [[2, 1, 1, 2, 3, 5, 6]],
-        "expected": 12
-      },
-      {
-        "input": [[5, 3, 4, 11, 2]],
-        "expected": 16
-      },
-      {
-        "input": [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]],
-        "expected": 30
-      }
-    ]
-  },
-  "214": {
-    "visible": [
-      {
-        "input": [[-2, 1, -3, 4, -1, 2, 1, -5, 4]],
-        "expected": 6
-      },
-      {
-        "input": [[1]],
-        "expected": 1
-      }
-    ],
-    "hidden": [
-      {
-        "input": [[5, 4, -1, 7, 8]],
-        "expected": 23
-      },
-      {
-        "input": [[-1]],
-        "expected": -1
-      },
-      {
-        "input": [[-2, -1, -3]],
-        "expected": -1
-      },
-      {
-        "input": [[-2, -3, -1, -5]],
-        "expected": -1
-      },
-      {
-        "input": [[1, 2, 3, 4, 5]],
-        "expected": 15
-      },
-      {
-        "input": [[-1, -2, 10, -3, 4]],
-        "expected": 11
-      }
-    ]
-  },
-  "215": {
-    "visible": [
-      {
-        "input": [121],
-        "expected": true
-      },
-      {
-        "input": [-121],
-        "expected": false
-      }
-    ],
-    "hidden": [
-      {
-        "input": [10],
-        "expected": false
-      },
-      {
-        "input": [0],
-        "expected": true
-      },
-      {
-        "input": [1221],
-        "expected": true
-      },
-      {
-        "input": [12321],
-        "expected": true
-      },
-      {
-        "input": [12345],
-        "expected": false
-      },
-      {
-        "input": [1000021],
-        "expected": false
-      },
-      {
-        "input": [7],
-        "expected": true
-      },
-      {
-        "input": [-1],
-        "expected": false
-      }
-    ]
-  },
-  "216": {
-    "visible": [
-      {
-        "input": [
-          [1, 2, 3, 4, 5],
-          [
-            [0, 2],
-            [1, 3],
-            [0, 4]
-          ]
-        ],
-        "expected": [6, 9, 15]
       },
       {
         "input": [
-          [-1, 0, 3, -2, 5],
           [
-            [0, 4],
-            [2, 2]
-          ]
+            "same",
+            "same",
+            "same"
+          ],
+          "same"
         ],
-        "expected": [5, 3]
-      }
-    ],
-    "hidden": [
-      {
-        "input": [[10], [[0, 0]]],
-        "expected": [10]
-      },
-      {
-        "input": [
-          [1, 1, 1, 1, 1],
-          [
-            [0, 0],
-            [0, 4],
-            [2, 4]
-          ]
-        ],
-        "expected": [1, 5, 3]
-      },
-      {
-        "input": [
-          [-5, -3, -1, -2, -4],
-          [
-            [0, 4],
-            [1, 3]
-          ]
-        ],
-        "expected": [-15, -6]
-      },
-      {
-        "input": [
-          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-          [
-            [0, 9],
-            [3, 7],
-            [2, 2]
-          ]
-        ],
-        "expected": [55, 30, 3]
-      },
-      {
-        "input": [
-          [7, 7, 7, 7],
-          [
-            [1, 2],
-            [0, 3]
-          ]
-        ],
-        "expected": [14, 28]
-      },
-      {
-        "input": [
-          [0, 1, 2, 3],
-          [
-            [0, 0],
-            [1, 1],
-            [2, 2],
-            [3, 3]
-          ]
-        ],
-        "expected": [0, 1, 2, 3]
+        "expected": 3
       }
     ]
   },
@@ -486,6 +115,88 @@
       {
         "stdin": "3\n없는학생\n4\n",
         "expected_output": "해당 학생을 찾을 수 없습니다.\n프로그램을 종료합니다."
+      }
+    ]
+  },
+  "206": {
+    "visible": [
+      {
+        "input": [
+          [
+            "flower",
+            "flow",
+            "flight"
+          ]
+        ],
+        "expected": "fl"
+      },
+      {
+        "input": [
+          [
+            "dog",
+            "racecar",
+            "car"
+          ]
+        ],
+        "expected": ""
+      }
+    ],
+    "hidden": [
+      {
+        "input": [
+          [
+            "interspecies",
+            "interstellar",
+            "interstate"
+          ]
+        ],
+        "expected": "inters"
+      },
+      {
+        "input": [
+          [
+            "a"
+          ]
+        ],
+        "expected": "a"
+      },
+      {
+        "input": [
+          [
+            "abc",
+            "abc",
+            "abc"
+          ]
+        ],
+        "expected": "abc"
+      },
+      {
+        "input": [
+          [
+            "abab",
+            "aba",
+            "abc"
+          ]
+        ],
+        "expected": "ab"
+      },
+      {
+        "input": [
+          [
+            "",
+            "abc"
+          ]
+        ],
+        "expected": ""
+      },
+      {
+        "input": [
+          [
+            "cir",
+            "car"
+          ]
+        ],
+        "expected": "c"
       }
     ]
   }

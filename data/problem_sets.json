@@ -2,33 +2,22 @@
   "sets": [
     {
       "setId": 1,
-      "name": "Pattern Tour",
-      "description": "16개 대표 유형을 한 번에 훑는 풀 투어 (A~P 카테고리 각 1문제)",
-      "problemIds": [1, 9, 3, 4, 5, 6, 7, 8, 18, 19, 20],
+      "name": "기본 세트",
+      "description": "코딩 테스트 2문제 + 창작 문제 + CLI 제작 + 창작 CLI",
+      "problemIds": [
+        6,
+        7,
+        18,
+        19,
+        20
+      ],
       "phase2ProblemIds": [
-        202, 210, 211, 212, 213, 214, 215, 216, 218, 219, 220
+        206,
+        207,
+        218,
+        219,
+        220
       ]
-    },
-    {
-      "setId": 2,
-      "name": "Easy Foundations",
-      "description": "기본기 다지기 (Easy 9문제)",
-      "problemIds": [1, 2, 3, 4, 6, 18, 19, 20],
-      "phase2ProblemIds": [207, 208, 212, 215, 218, 219, 220]
-    },
-    {
-      "setId": 3,
-      "name": "Medium Patterns",
-      "description": "중급 패턴 (Medium 7문제)",
-      "problemIds": [5, 9, 10, 11, 18, 19, 20],
-      "phase2ProblemIds": [213, 214, 216, 218, 219, 220]
-    },
-    {
-      "setId": 4,
-      "name": "Mini Set (5문제)",
-      "description": "코딩 2 + 창작 문제 1 + CLI 1 + 창작 CLI 1",
-      "problemIds": [1, 3, 18, 19, 20],
-      "phase2ProblemIds": [202, 210, 218, 219, 220]
     }
   ]
 }
