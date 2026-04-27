@@ -32,6 +32,11 @@ const SESSION_USER_KEY = "cp_user_id";
 const LOG_QUEUE_KEY = "cp_log_queue";
 const EXP_SUFFIX = "_exp";
 
+let _kbBatch = null;
+let _kbBatchTimer = null;
+const KB_FLUSH_DELAY = 2500;
+const KB_BATCH_MAX = 200;
+
 let allowedUsers = [];
 
 function resolveUserId(rawUid) {
@@ -182,6 +187,7 @@ setInterval(flushLogs, 15_000);
 window.addEventListener("online", flushLogs);
 window.addEventListener("beforeunload", () => {
   if (!session.userId) return;
+  _flushKeystrokeBatch();
   const p = currentProblem();
   const base = {
     ts: new Date().toISOString(),
@@ -904,6 +910,62 @@ function flushCodeEditLog() {
   });
 }
 
+// ────────────── Keystroke logging ──────────────
+function _classifyKey(e) {
+  if (e.ctrlKey || e.metaKey) return { type: "ctrl", key: e.key.toLowerCase() };
+  if (e.key.length === 1) return { type: "printable" };
+  if (
+    [
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Home",
+      "End",
+      "PageUp",
+      "PageDown",
+    ].includes(e.key)
+  )
+    return { type: "navigation", key: e.key };
+  if (["Backspace", "Delete"].includes(e.key))
+    return { type: "delete", key: e.key };
+  return { type: "special", key: e.key };
+}
+
+function _trackKeystroke(e) {
+  if (!_kbBatch) _kbBatch = { startTs: Date.now(), keys: [] };
+  _kbBatch.keys.push(_classifyKey(e));
+  clearTimeout(_kbBatchTimer);
+  if (_kbBatch.keys.length >= KB_BATCH_MAX) {
+    _flushKeystrokeBatch();
+  } else {
+    _kbBatchTimer = setTimeout(_flushKeystrokeBatch, KB_FLUSH_DELAY);
+  }
+}
+
+function _flushKeystrokeBatch() {
+  if (!_kbBatch || _kbBatch.keys.length === 0) return;
+  const { startTs, keys } = _kbBatch;
+  _kbBatch = null;
+  const s = { printable: 0, delete: 0, navigation: 0, ctrl: [], special: [] };
+  for (const k of keys) {
+    if (k.type === "printable") s.printable++;
+    else if (k.type === "delete") s.delete++;
+    else if (k.type === "navigation") s.navigation++;
+    else if (k.type === "ctrl") s.ctrl.push(k.key);
+    else s.special.push(k.key);
+  }
+  logEvent("keystroke_batch", {
+    totalKeys: keys.length,
+    printableKeys: s.printable,
+    deleteKeys: s.delete,
+    navigationKeys: s.navigation,
+    ctrlCombos: s.ctrl,
+    specialKeys: [...new Set(s.special)],
+    durationMs: Date.now() - startTs,
+  });
+}
+
 // ────────────── Terminal ──────────────
 function termClear() {
   els.termBody.innerHTML = `<div><span class="prompt">/usercode/session$</span><span class="term-cursor"></span></div>`;
@@ -1501,6 +1563,25 @@ function wireUp() {
       saveCode();
       scheduleCodeEditLog();
     }
+    _trackKeystroke(e);
+  });
+  els.codeInput.addEventListener("paste", (e) => {
+    const text = e.clipboardData?.getData("text") ?? "";
+    logEvent("paste", { chars: text.length, content: text });
+  });
+  els.codeInput.addEventListener("copy", () => {
+    const sel = els.codeInput.value.slice(
+      els.codeInput.selectionStart,
+      els.codeInput.selectionEnd,
+    );
+    if (sel.length > 0) logEvent("copy", { chars: sel.length, content: sel });
+  });
+  els.codeInput.addEventListener("cut", () => {
+    const sel = els.codeInput.value.slice(
+      els.codeInput.selectionStart,
+      els.codeInput.selectionEnd,
+    );
+    if (sel.length > 0) logEvent("cut", { chars: sel.length, content: sel });
   });
 
   els.resetBtn.addEventListener("click", () => {

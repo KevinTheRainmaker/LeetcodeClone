@@ -2,81 +2,37 @@
   "6": {
     "visible": [
       {
-        "input": [
-          [
-            "flower",
-            "flow",
-            "flight"
-          ]
-        ],
+        "input": [["flower", "flow", "flight"]],
         "expected": "fl"
       },
       {
-        "input": [
-          [
-            "dog",
-            "racecar",
-            "car"
-          ]
-        ],
+        "input": [["dog", "racecar", "car"]],
         "expected": ""
       }
     ],
     "hidden": [
       {
-        "input": [
-          [
-            "interspecies",
-            "interstellar",
-            "interstate"
-          ]
-        ],
+        "input": [["interspecies", "interstellar", "interstate"]],
         "expected": "inters"
       },
       {
-        "input": [
-          [
-            "a"
-          ]
-        ],
+        "input": [["a"]],
         "expected": "a"
       },
       {
-        "input": [
-          [
-            "abc",
-            "abc",
-            "abc"
-          ]
-        ],
+        "input": [["abc", "abc", "abc"]],
         "expected": "abc"
       },
       {
-        "input": [
-          [
-            "abab",
-            "aba",
-            "abc"
-          ]
-        ],
+        "input": [["abab", "aba", "abc"]],
         "expected": "ab"
       },
       {
-        "input": [
-          [
-            "",
-            "abc"
-          ]
-        ],
+        "input": [["", "abc"]],
         "expected": ""
       },
       {
-        "input": [
-          [
-            "cir",
-            "car"
-          ]
-        ],
+        "input": [["cir", "car"]],
         "expected": "c"
       }
     ]
@@ -84,100 +40,37 @@
   "7": {
     "visible": [
       {
-        "input": [
-          [
-            "pay",
-            "attention",
-            "practice",
-            "attend"
-          ],
-          "at"
-        ],
+        "input": [["pay", "attention", "practice", "attend"], "at"],
         "expected": 2
       },
       {
-        "input": [
-          [
-            "leetcode",
-            "win",
-            "loops",
-            "success"
-          ],
-          "code"
-        ],
+        "input": [["leetcode", "win", "loops", "success"], "code"],
         "expected": 0
       }
     ],
     "hidden": [
       {
-        "input": [
-          [
-            "apple",
-            "app",
-            "apricot",
-            "application",
-            "banana"
-          ],
-          "app"
-        ],
+        "input": [["apple", "app", "apricot", "application", "banana"], "app"],
         "expected": 3
       },
       {
-        "input": [
-          [
-            "hello",
-            "help",
-            "he",
-            "h"
-          ],
-          "he"
-        ],
+        "input": [["hello", "help", "he", "h"], "he"],
         "expected": 3
       },
       {
-        "input": [
-          [
-            "a",
-            "aa",
-            "aaa",
-            "aaaa"
-          ],
-          "aa"
-        ],
+        "input": [["a", "aa", "aaa", "aaaa"], "aa"],
         "expected": 3
       },
       {
-        "input": [
-          [
-            "prefix",
-            "pre",
-            "prelude",
-            "post"
-          ],
-          "pre"
-        ],
+        "input": [["prefix", "pre", "prelude", "post"], "pre"],
         "expected": 3
       },
       {
-        "input": [
-          [
-            "x",
-            "y",
-            "z"
-          ],
-          "a"
-        ],
+        "input": [["x", "y", "z"], "a"],
         "expected": 0
       },
       {
-        "input": [
-          [
-            "same",
-            "same",
-            "same"
-          ],
-          "same"
-        ],
+        "input": [["same", "same", "same"], "same"],
         "expected": 3
       }
     ]

@@ -28,7 +28,8 @@
       "Bash(g++ --version)",
       "Bash(awk '{print $2}')",
       "Bash(python3 *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git status *)"
     ]
   }
 }
