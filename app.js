@@ -1089,27 +1089,93 @@ function addMsg(role, html) {
   return d;
 }
 
+// function buildSystemPrompt() {
+//   const p = currentProblem();
+//   const problemTitle = p ? p.title : "현재 문제";
+//   return [
+//     `You are a helpful coding assistant strictly scoped to ONE problem: "${problemTitle}".`,
+//     "The full problem statement (and any images) was provided as the first user message in this conversation.",
+//     "",
+//     "STRICT SCOPE RULES:",
+//     `- You may ONLY discuss: the problem itself, its constraints, hints, approach, time/space complexity, code review, and debugging of the student's solution.`,
+//     `- If the user explicitly asks you to solve the current problem (e.g. '문제를 풀어줘', '정답 코드 작성해줘', 'solution 알려줘'), you should answer directly with a correct approach and code for this problem.`,
+//     "- If the user asks about ANY other problem, topic, or task — even if it is a coding question — politely refuse in one sentence and redirect them back to the current problem.",
+//     `- Example refusal (Korean): \"죄송합니다, 저는 현재 문제 '${problemTitle}'에 대해서만 도움드릴 수 있습니다.\"`,
+//     "",
+//     "RESPONSE STYLE:",
+//     "- Respond in the user's language (Korean if they write Korean).",
+//     "- If the user asks for hints, give hints.",
+//     "- If the user asks for a full solution, provide the full solution directly.",
+//     "- Be concise and focused on the current problem only.",
+//     "",
+//     `Language: ${state.lang}`,
+//     `Student's current code:\n\`\`\`${state.lang}\n${state.code.slice(0, 2000)}\n\`\`\``,
+//   ].join("\n");
+// }
+
 function buildSystemPrompt() {
   const p = currentProblem();
-  const problemTitle = p ? p.title : "현재 문제";
+  const taskTitle = p ? p.title : "현재 태스크";
+  const taskType = p ? p.type : "general";
+  // type: "solve" | "design" | "implement" | "specify"
+
+  const taskDescriptions = {
+    solve: `프로그래밍 문제 풀기: "${taskTitle}"`,
+    design: `프로그래밍 문제 디자인하기: "${taskTitle}"`,
+    implement: `명세 구현 과제: "${taskTitle}"`,
+    specify: `명세 작성하기: "${taskTitle}"`,
+  };
+
+  const scopeRules = {
+    solve: [
+      `- 현재 문제의 이해, 접근 방식, 시간/공간 복잡도, 힌트, 코드 리뷰, 디버깅에 대해서만 답변하세요.`,
+      `- 사용자가 풀이를 직접 요청하면 (예: '풀어줘', '정답 알려줘', 'solution 작성해줘') 올바른 접근법과 코드를 제공하세요.`,
+    ],
+    design: [
+      `- 문제 설계 조건, 예제 입출력 구성, 엣지 케이스 설정, 난이도 조정, 문제 서술 방식에 대해서만 답변하세요.`,
+      `- 사용자가 문제 초안 작성을 요청하면 직접 작성해주세요.`,
+    ],
+    implement: [
+      `- 주어진 명세의 이해, 기능별 구현 방법, 코드 구조 설계, 디버깅에 대해서만 답변하세요.`,
+      `- 사용자가 특정 기능의 구현을 요청하면 해당 기능의 코드를 직접 제공하세요.`,
+    ],
+    specify: [
+      `- 명세 작성 방법, 요구사항 구체화, 엣지 케이스 정의, 명세 구조 설계에 대해서만 답변하세요.`,
+      `- 사용자가 명세 초안 작성을 요청하면 직접 작성해주세요.`,
+    ],
+  };
+
+  const currentTaskDesc = taskDescriptions[taskType] 
+    ?? `현재 태스크: "${taskTitle}"`;
+  const currentScopeRules = scopeRules[taskType] 
+    ?? [`- 현재 태스크와 직접 관련된 내용에 대해서만 답변하세요.`];
+
+  const codeContext = state.code
+    ? [
+        "",
+        `현재 작성 중인 코드:`,
+        `\`\`\`${state.lang}`,
+        state.code.slice(0, 2000),
+        `\`\`\``,
+      ].join("\n")
+    : "";
+
   return [
-    `You are a helpful coding assistant strictly scoped to ONE problem: "${problemTitle}".`,
-    "The full problem statement (and any images) was provided as the first user message in this conversation.",
+    `You are a helpful assistant strictly scoped to ONE task: ${currentTaskDesc}.`,
+    "The full task description (and any related materials) was provided as the first user message in this conversation.",
     "",
     "STRICT SCOPE RULES:",
-    `- You may ONLY discuss: the problem itself, its constraints, hints, approach, time/space complexity, code review, and debugging of the student's solution.`,
-    `- If the user explicitly asks you to solve the current problem (e.g. '문제를 풀어줘', '정답 코드 작성해줘', 'solution 알려줘'), you should answer directly with a correct approach and code for this problem.`,
-    "- If the user asks about ANY other problem, topic, or task — even if it is a coding question — politely refuse in one sentence and redirect them back to the current problem.",
-    `- Example refusal (Korean): \"죄송합니다, 저는 현재 문제 '${problemTitle}'에 대해서만 도움드릴 수 있습니다.\"`,
+    ...currentScopeRules,
+    `- 현재 태스크와 무관한 질문이나 다른 태스크에 대한 요청은 한 문장으로 정중히 거절하고 현재 태스크로 안내하세요.`,
+    `- 거절 예시 (Korean): \"죄송합니다, 저는 현재 태스크 '${taskTitle}'에 대해서만 도움드릴 수 있습니다.\"`,
     "",
     "RESPONSE STYLE:",
-    "- Respond in the user's language (Korean if they write Korean).",
-    "- If the user asks for hints, give hints.",
-    "- If the user asks for a full solution, provide the full solution directly.",
-    "- Be concise and focused on the current problem only.",
+    "- 사용자가 사용하는 언어로 답변하세요. (한국어로 질문하면 한국어로 답변)",
+    "- 힌트를 요청하면 힌트를 제공하고, 직접적인 답변을 요청하면 직접 제공하세요.",
+    "- 현재 태스크에만 집중하여 간결하게 답변하세요.",
     "",
     `Language: ${state.lang}`,
-    `Student's current code:\n\`\`\`${state.lang}\n${state.code.slice(0, 2000)}\n\`\`\``,
+    codeContext,
   ].join("\n");
 }
 
