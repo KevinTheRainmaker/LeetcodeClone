@@ -438,30 +438,59 @@ function renderDescPanel(p) {
   if (isCreativeType(p)) {
     els.pDesc.innerHTML = "";
 
-    const instructions = document.createElement("div");
-    instructions.className = "p-desc creative-instructions";
-    instructions.innerHTML = buildDescHtml(p);
-    els.pDesc.appendChild(instructions);
+    // ── 가이드 섹션 ──
+    const guide = document.createElement("div");
+    guide.className = "creative-guide";
+    guide.innerHTML = buildDescHtml(p);
+    els.pDesc.appendChild(guide);
 
-    const label = document.createElement("div");
-    label.className = "p-section-title";
-    label.textContent = alreadySaved
-      ? "내가 작성한 내용 (저장됨)"
-      : "내용 작성";
-    els.pDesc.appendChild(label);
+    // ── 작성 카드 ──
+    const sectionTitle =
+      p.type === "creative-cli" ? "명세서 작성" : "문제 작성";
+    const card = document.createElement("div");
+    card.className = "write-card" + (alreadySaved ? " write-card--saved" : "");
 
+    // 카드 헤더
+    const cardHeader = document.createElement("div");
+    cardHeader.className = "write-card__header";
+    cardHeader.innerHTML = alreadySaved
+      ? `<svg class="write-card__icon write-card__icon--ok" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>
+         <div>
+           <div class="write-card__title">작성 완료</div>
+           <div class="write-card__hint">저장된 내용입니다 — 오른쪽 에디터에서 코드를 작성하세요</div>
+         </div>`
+      : `<svg class="write-card__icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+         <div>
+           <div class="write-card__title">${sectionTitle}</div>
+           <div class="write-card__hint">작성 후 저장하면 오른쪽 에디터가 활성화됩니다</div>
+         </div>`;
+    card.appendChild(cardHeader);
+
+    // 텍스트 영역
     const textarea = document.createElement("textarea");
     textarea.id = "descEditArea";
-    textarea.className = "desc-edit-area";
+    textarea.className = "write-card__textarea";
     textarea.placeholder = p.placeholder || "내용을 입력하세요...";
     textarea.value = saved || "";
     textarea.readOnly = alreadySaved;
-    els.pDesc.appendChild(textarea);
+    card.appendChild(textarea);
 
+    // 카드 푸터
     if (!alreadySaved) {
+      const cardFooter = document.createElement("div");
+      cardFooter.className = "write-card__footer";
+
+      const charCount = document.createElement("span");
+      charCount.className = "write-card__charcount";
+      charCount.textContent = `${textarea.value.length}자`;
+      textarea.addEventListener("input", () => {
+        charCount.textContent = `${textarea.value.length}자`;
+      });
+
       const saveBtn = document.createElement("button");
-      saveBtn.className = "btn primary desc-save-btn";
-      saveBtn.textContent = "저장";
+      saveBtn.className = "btn primary write-card__save-btn";
+      saveBtn.innerHTML =
+        "저장하고 코딩 시작 <svg viewBox='0 0 24 24' width='14' height='14'><path d='M5 12h14M12 5l7 7-7 7'/></svg>";
       saveBtn.addEventListener("click", () => {
         const text = textarea.value.trim();
         if (!text) {
@@ -474,13 +503,13 @@ function renderDescPanel(p) {
         renderDescPanel(p);
         applyDescLock();
       });
-      els.pDesc.appendChild(saveBtn);
-    } else {
-      const badge = document.createElement("div");
-      badge.className = "desc-saved-badge";
-      badge.textContent = "✓ 저장됨 — 아래 에디터에서 코드를 작성하세요";
-      els.pDesc.appendChild(badge);
+
+      cardFooter.appendChild(charCount);
+      cardFooter.appendChild(saveBtn);
+      card.appendChild(cardFooter);
     }
+
+    els.pDesc.appendChild(card);
   } else {
     els.pDesc.innerHTML = buildDescHtml(p);
   }
@@ -956,12 +985,42 @@ async function judge(mode) {
     );
     if (Array.isArray(data.caseResults)) {
       data.caseResults.forEach((c) => {
-        if (c.passed) {
-          termPush(`<span class="term-ok">  ✓ case #${c.index} passed</span>`);
+        if (p.type === "cli-given") {
+          if (c.passed) {
+            termPush(
+              `<span class="term-ok">  ✓ case #${c.index}</span> <span class="term-muted">stdin: ${escapeHtml((c.stdin || "").slice(0, 80).replace(/\n/g, "↵"))}</span>`,
+            );
+          } else {
+            termPush(
+              `<span class="term-err">  ✗ case #${c.index} failed</span>`,
+            );
+            if (c.stdin)
+              termPush(
+                `<span class="term-muted">    stdin:    ${escapeHtml((c.stdin || "").replace(/\n/g, "↵"))}</span>`,
+              );
+            if (c.expected)
+              termPush(
+                `<span class="term-muted">    expected: ${escapeHtml((c.expected || "").slice(0, 300))}</span>`,
+              );
+            if (c.actual)
+              termPush(
+                `<span class="term-muted">    actual:   ${escapeHtml((c.actual || "").slice(0, 300))}</span>`,
+              );
+            if (c.error)
+              termPush(
+                `<span class="term-err">    error:    ${escapeHtml(String(c.error).slice(0, 200))}</span>`,
+              );
+          }
         } else {
-          termPush(
-            `<span class="term-err">  ✗ case #${c.index} failed</span> <span class="term-muted">input=${escapeHtml(JSON.stringify(c.input))} expected=${escapeHtml(JSON.stringify(c.expected))} actual=${escapeHtml(JSON.stringify(c.actual))}${c.error ? " err=" + escapeHtml(String(c.error).slice(0, 200)) : ""}</span>`,
-          );
+          if (c.passed) {
+            termPush(
+              `<span class="term-ok">  ✓ case #${c.index} passed</span>`,
+            );
+          } else {
+            termPush(
+              `<span class="term-err">  ✗ case #${c.index} failed</span> <span class="term-muted">input=${escapeHtml(JSON.stringify(c.input))} expected=${escapeHtml(JSON.stringify(c.expected))} actual=${escapeHtml(JSON.stringify(c.actual))}${c.error ? " err=" + escapeHtml(String(c.error).slice(0, 200)) : ""}</span>`,
+            );
+          }
         }
       });
     }
@@ -1145,10 +1204,11 @@ function buildSystemPrompt() {
     ],
   };
 
-  const currentTaskDesc = taskDescriptions[taskType] 
-    ?? `현재 태스크: "${taskTitle}"`;
-  const currentScopeRules = scopeRules[taskType] 
-    ?? [`- 현재 태스크와 직접 관련된 내용에 대해서만 답변하세요.`];
+  const currentTaskDesc =
+    taskDescriptions[taskType] ?? `현재 태스크: "${taskTitle}"`;
+  const currentScopeRules = scopeRules[taskType] ?? [
+    `- 현재 태스크와 직접 관련된 내용에 대해서만 답변하세요.`,
+  ];
 
   const codeContext = state.code
     ? [
