@@ -69,6 +69,7 @@ const state = {
   chatInitialized: false,
   lastSeedProblemId: null,
   explainLocked: false,
+  descSaved: false,
 };
 
 const els = {};
@@ -231,12 +232,15 @@ function saveProgress(uid, patch) {
 
 // ────────────── Data load ──────────────
 async function loadData() {
-  const [p, t, s] = await Promise.all([
+  const [p1, p2, t, s] = await Promise.all([
     fetch("./data/problems.json").then((r) => r.json()),
+    fetch("./data/phase2_problems.json")
+      .then((r) => r.json())
+      .catch(() => []),
     fetch("./data/testcases.json").then((r) => r.json()),
     fetch("./data/problem_sets.json").then((r) => r.json()),
   ]);
-  state.problems = p;
+  state.problems = [...p1, ...p2];
   state.testcases = t;
   state.sets = s.sets || [];
 
@@ -426,13 +430,69 @@ function buildDescHtml(p) {
   return html;
 }
 
+function renderDescPanel(p) {
+  const saved = loadDesc();
+  const alreadySaved = saved !== null;
+  state.descSaved = alreadySaved;
+
+  if (isCreativeType(p)) {
+    els.pDesc.innerHTML = "";
+
+    const instructions = document.createElement("div");
+    instructions.className = "p-desc creative-instructions";
+    instructions.innerHTML = buildDescHtml(p);
+    els.pDesc.appendChild(instructions);
+
+    const label = document.createElement("div");
+    label.className = "p-section-title";
+    label.textContent = alreadySaved
+      ? "내가 작성한 내용 (저장됨)"
+      : "내용 작성";
+    els.pDesc.appendChild(label);
+
+    const textarea = document.createElement("textarea");
+    textarea.id = "descEditArea";
+    textarea.className = "desc-edit-area";
+    textarea.placeholder = p.placeholder || "내용을 입력하세요...";
+    textarea.value = saved || "";
+    textarea.readOnly = alreadySaved;
+    els.pDesc.appendChild(textarea);
+
+    if (!alreadySaved) {
+      const saveBtn = document.createElement("button");
+      saveBtn.className = "btn primary desc-save-btn";
+      saveBtn.textContent = "저장";
+      saveBtn.addEventListener("click", () => {
+        const text = textarea.value.trim();
+        if (!text) {
+          showToast("내용을 입력하세요");
+          return;
+        }
+        saveDesc(text);
+        state.descSaved = true;
+        logEvent("desc_save", { chars: text.length, problemType: p.type });
+        renderDescPanel(p);
+        applyDescLock();
+      });
+      els.pDesc.appendChild(saveBtn);
+    } else {
+      const badge = document.createElement("div");
+      badge.className = "desc-saved-badge";
+      badge.textContent = "✓ 저장됨 — 아래 에디터에서 코드를 작성하세요";
+      els.pDesc.appendChild(badge);
+    }
+  } else {
+    els.pDesc.innerHTML = buildDescHtml(p);
+  }
+}
+
 function render() {
   const p = currentProblem();
   if (!p) return;
 
   els.pTitle.textContent = `Task ${state.idx + 1}: ${p.title}`;
 
-  els.pDesc.innerHTML = buildDescHtml(p);
+  renderDescPanel(p);
 
   els.pExamples.innerHTML = "";
   const examples = p.examples || [];
@@ -518,12 +578,14 @@ function render() {
     if (els.aiPanel?.classList.contains("open")) initChatSession();
   }
 
-  if (runArgs.mode === "phase2") {
-    state.explainLocked = true;
+  const isPhase2Coding = runArgs.mode === "phase2" && p?.type === "coding";
+  state.explainLocked = isPhase2Coding;
+  if (isPhase2Coding) {
     if (els.explainList) els.explainList.innerHTML = "";
     if (els.explainInput) els.explainInput.value = "";
   }
   applyExplainLock();
+  applyDescLock();
 }
 
 // ────────────── Syntax highlight (overlay) ──────────────
@@ -766,6 +828,30 @@ function paintEditor() {
   els.gutter.scrollTop = els.codeInput.scrollTop;
 }
 
+function isCreativeType(p) {
+  return p?.type === "creative-problem" || p?.type === "creative-cli";
+}
+
+function isCliType(p) {
+  return p?.type === "cli-given" || p?.type === "creative-cli";
+}
+
+function descKey() {
+  const p = currentProblem();
+  if (!p || !session.userId) return null;
+  return `desc:${session.userId}:p${p.id}`;
+}
+
+function saveDesc(text) {
+  const k = descKey();
+  if (k) localStorage.setItem(k, text);
+}
+
+function loadDesc() {
+  const k = descKey();
+  return k ? localStorage.getItem(k) : null;
+}
+
 function saveCode() {
   const p = currentProblem();
   if (!p || !session.userId) return;
@@ -810,6 +896,29 @@ async function judge(mode) {
   const p = currentProblem();
   if (!p) return;
   saveCode();
+
+  // creative 유형: 자동채점 없이 저장 후 Next 활성화
+  if (isCreativeType(p) && mode === "submit") {
+    const desc = loadDesc() || "";
+    logEvent("creative_submit", {
+      problemType: p.type,
+      desc,
+      code: state.code,
+      codeLength: state.code.length,
+    });
+    if (!state.solved.has(state.idx)) {
+      state.solved.add(state.idx);
+      saveProgress(session.userId, { solvedIdx: [...state.solved] });
+      logEvent("problem_solved", { problemIdx: state.idx });
+    }
+    updateNextGate();
+    renderProbList();
+    termPush(
+      `<span class="term-ok">✓ 제출 완료 — NEXT 버튼으로 다음 문제로 이동하세요.</span>`,
+    );
+    return;
+  }
+
   const cmd =
     mode === "submit"
       ? "pytest --submit (visible + hidden)"
@@ -1178,6 +1287,18 @@ function applyExplainLock() {
   if (locked && els.nextBtn) els.nextBtn.disabled = true;
 }
 
+function applyDescLock() {
+  const p = currentProblem();
+  const needsLock = isCreativeType(p) && !state.descSaved;
+  if (els.codeInput)
+    els.codeInput.readOnly = needsLock || !!state.explainLocked;
+  if (els.runBtn) els.runBtn.disabled = needsLock || !!state.explainLocked;
+  if (els.submitBtn)
+    els.submitBtn.disabled = needsLock || !!state.explainLocked;
+  if (needsLock && els.nextBtn) els.nextBtn.disabled = true;
+  els.codeArea?.classList.toggle("editor-locked", needsLock);
+}
+
 // TODO: replace with real criteria
 function checkExplainCriteria(text) {
   return text.trim().length >= 200;
@@ -1514,6 +1635,7 @@ function boot() {
   cacheEls();
   wireUp();
   applyExplainLock();
+  applyDescLock();
 
   // Restore saved lang/density; accent follows language automatically
   const savedLang = localStorage.getItem("cp_lang");

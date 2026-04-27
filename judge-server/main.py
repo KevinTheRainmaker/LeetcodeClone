@@ -17,6 +17,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 PROBLEMS_PATH = DATA_DIR / "problems.json"
 TESTCASES_PATH = DATA_DIR / "testcases.json"
+PHASE2_PROBLEMS_PATH = DATA_DIR / "phase2_problems.json"
+PHASE2_TESTCASES_PATH = DATA_DIR / "phase2_testcases.json"
 TIME_LIMIT_SEC = 2.0
 SHARED_TOKEN = os.getenv("JUDGE_SHARED_TOKEN", "").strip()
 PUBLIC_PATHS = {"/health", "/"}
@@ -81,7 +83,8 @@ def load_json(path: Path):
 
 
 def get_problem(problem_id: int) -> Dict[str, Any]:
-    problems = load_json(PROBLEMS_PATH)
+    path = PHASE2_PROBLEMS_PATH if problem_id >= 200 else PROBLEMS_PATH
+    problems = load_json(path)
     for p in problems:
         if p.get("id") == problem_id:
             return p
@@ -89,10 +92,11 @@ def get_problem(problem_id: int) -> Dict[str, Any]:
 
 
 def get_cases(problem_id: int, mode: str) -> List[Dict[str, Any]]:
-    testcases = load_json(TESTCASES_PATH)
+    path = PHASE2_TESTCASES_PATH if problem_id >= 200 else TESTCASES_PATH
+    testcases = load_json(path)
     key = str(problem_id)
     if key not in testcases:
-        raise HTTPException(status_code=404, detail=f"Testcases not found for problem: {problem_id}")
+        return []  # creative 유형은 testcase 없음
     visible = testcases[key].get("visible", [])
     hidden = testcases[key].get("hidden", [])
     return visible + hidden if mode == "submit" else visible
@@ -425,6 +429,67 @@ def parse_line_results(proc: subprocess.CompletedProcess, cases: List[Dict[str, 
     }
 
 
+def run_cli(language: str, code: str, cases: List[Dict[str, Any]], work: Path) -> Dict[str, Any]:
+    if language == "python":
+        script = work / "solution.py"
+        script.write_text(code, encoding="utf-8")
+        run_cmd = ["python3", str(script)]
+    elif language == "java":
+        src = work / "Main.java"
+        src.write_text(code, encoding="utf-8")
+        compile_proc = run_command(["javac", str(src)], cwd=work, timeout=15.0)
+        if compile_proc.returncode != 0:
+            return {
+                "status": "Compile Error", "passed": 0, "total": len(cases),
+                "caseResults": [], "stderr": (compile_proc.stderr or "").strip()[:4000], "runtimeMs": 0,
+            }
+        run_cmd = ["java", "-cp", str(work), "Main"]
+    else:  # cpp
+        src = work / "main.cpp"
+        src.write_text(code, encoding="utf-8")
+        compile_proc = run_command(
+            ["g++", "-std=c++17", "-O2", "-o", str(work / "main"), str(src)], cwd=work, timeout=15.0
+        )
+        if compile_proc.returncode != 0:
+            return {
+                "status": "Compile Error", "passed": 0, "total": len(cases),
+                "caseResults": [], "stderr": (compile_proc.stderr or "").strip()[:4000], "runtimeMs": 0,
+            }
+        run_cmd = [str(work / "main")]
+
+    results = []
+    start = time.perf_counter()
+    for i, tc in enumerate(cases, start=1):
+        stdin_text = tc.get("stdin", "")
+        expected = (tc.get("expected_output", "") or "").strip()
+        try:
+            proc = subprocess.run(
+                run_cmd, cwd=str(work),
+                input=stdin_text, capture_output=True, text=True, timeout=TIME_LIMIT_SEC,
+            )
+            actual = (proc.stdout or "").strip()
+            expected_lines = [ln.strip() for ln in expected.splitlines() if ln.strip()]
+            passed = all(ln in actual for ln in expected_lines)
+            results.append({
+                "index": i, "passed": passed,
+                "stdin": stdin_text, "expected": expected, "actual": actual,
+                "error": (proc.stderr or "").strip()[:500],
+            })
+        except subprocess.TimeoutExpired:
+            results.append({
+                "index": i, "passed": False,
+                "stdin": stdin_text, "expected": expected, "actual": "", "error": "Time Limit Exceeded",
+            })
+
+    elapsed = int((time.perf_counter() - start) * 1000)
+    passed_count = sum(1 for r in results if r["passed"])
+    return {
+        "status": "Accepted" if passed_count == len(cases) else "Wrong Answer",
+        "passed": passed_count, "total": len(cases),
+        "caseResults": results, "stderr": "", "runtimeMs": elapsed,
+    }
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -438,6 +503,12 @@ def judge(req: JudgeRequest):
         raise HTTPException(status_code=400, detail="mode must be run|submit")
 
     problem = get_problem(req.problemId)
+    problem_type = problem.get("type", "coding")
+
+    # creative 유형은 프론트에서 채점 없이 처리 — 혹시 호출되면 빈 성공 반환
+    if problem_type in ("creative-problem", "creative-cli"):
+        return {"status": "Accepted", "passed": 0, "total": 0, "caseResults": [], "runtimeMs": 0}
+
     cases = get_cases(req.problemId, req.mode)
     if not cases:
         raise HTTPException(status_code=400, detail="No testcases")
@@ -445,7 +516,9 @@ def judge(req: JudgeRequest):
     work = Path(tempfile.mkdtemp(prefix="judge_"))
     started = time.perf_counter()
     try:
-        if req.language == "python":
+        if problem_type == "cli-given":
+            out = run_cli(req.language, req.code, cases, work)
+        elif req.language == "python":
             out = run_python(problem, req.code, cases, work)
         elif req.language == "cpp":
             out = run_cpp(problem, req.code, cases, work)
