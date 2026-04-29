@@ -1,0 +1,13 @@
+{
+  "task_id": "219",
+  "problem_title": "학생 성적 관리 시스템",
+  "rubric_items": [
+    {
+      "id": "R1",
+      "dimension": "conceptual_understanding",
+      "level": "what",
+      "description": "구현할 CLI 프로그램의 주요 기능(입력 방식, 데이터 처리, 출력 형식)을 설명할 수 있다",
+      "required": true
+    }
+  ]
+}

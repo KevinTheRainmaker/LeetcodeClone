@@ -1,0 +1,41 @@
+{
+  "task_id": "207",
+  "problem_title": "등굣길",
+  "rubric_items": [
+    {
+      "id": "R1",
+      "dimension": "code_reading",
+      "level": "what",
+      "description": "dp 테이블의 의미 — dp[i][j]가 (i,j) 칸에 도달하는 경로의 수를 나타낸다는 것을 설명할 수 있다",
+      "required": true
+    },
+    {
+      "id": "R2",
+      "dimension": "code_reading",
+      "level": "what",
+      "description": "점화식 dp[i][j] = dp[i-1][j] + dp[i][j-1] (웅덩이 제외)를 설명할 수 있다",
+      "required": true
+    },
+    {
+      "id": "R3",
+      "dimension": "conceptual_understanding",
+      "level": "why",
+      "description": "왜 오른쪽·아래쪽으로만 이동하는 제약이 DP를 가능하게 하는지 (비순환 의존성) 설명할 수 있다",
+      "required": true
+    },
+    {
+      "id": "R4",
+      "dimension": "conceptual_understanding",
+      "level": "why",
+      "description": "왜 1,000,000,007로 나머지 연산을 해야 하는지 (오버플로우 방지) 설명할 수 있다",
+      "required": true
+    },
+    {
+      "id": "R5",
+      "dimension": "debugging",
+      "level": "what_if",
+      "description": "puddles 좌표를 dp 계산에서 어떻게 처리해야 하는지, 그리고 1-based vs 0-based 인덱스 변환 문제를 설명할 수 있다",
+      "required": true
+    }
+  ]
+}

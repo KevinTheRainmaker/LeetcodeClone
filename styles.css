@@ -1689,6 +1689,105 @@ body {
   border-color: var(--accent);
 }
 
+/* ── Explain attempt counter ── */
+.explain-attempt {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Rubric feedback block ── */
+.rubric-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: flex-start;
+  width: 100%;
+}
+
+.rubric-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rubric-item.correct {
+  border-color: oklch(0.65 0.15 150 / 0.5);
+  background: oklch(0.65 0.15 150 / 0.08);
+}
+
+.rubric-item.warning {
+  border-color: oklch(0.82 0.14 75 / 0.5);
+  background: oklch(0.82 0.14 75 / 0.08);
+}
+
+.rubric-item.missing {
+  border-color: oklch(0.65 0.2 25 / 0.4);
+  background: oklch(0.65 0.2 25 / 0.06);
+}
+
+.rubric-item-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  margin-top: 1px;
+}
+
+.rubric-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rubric-item-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-2);
+}
+
+.rubric-item-feedback {
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ── Shallow detection warning ── */
+.shallow-warning {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid oklch(0.82 0.14 75 / 0.4);
+  background: oklch(0.82 0.14 75 / 0.07);
+  color: var(--text);
+}
+
+/* ── Unlock success message ── */
+.explain-unlock-msg {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  background: oklch(0.65 0.15 150 / 0.12);
+  border: 1px solid oklch(0.65 0.15 150 / 0.5);
+  text-align: center;
+  margin-top: 4px;
+}
+
+.explain-unlock-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+
 /* ─────────────────────────────────────────────
    Creative problem types — write card
    ───────────────────────────────────────────── */

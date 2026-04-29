@@ -74,6 +74,8 @@ const state = {
   chatInitialized: false,
   lastSeedProblemId: null,
   explainLocked: false,
+  explainAttempts: 0,
+  explainGateLockTime: null,
   descSaved: false,
 };
 
@@ -118,6 +120,7 @@ function cacheEls() {
     "explainInput",
     "explainSend",
     "explainResize",
+    "explainAttempt",
   ];
   ids.forEach((id) => (els[id] = document.getElementById(id)));
 }
@@ -613,11 +616,18 @@ function render() {
     if (els.aiPanel?.classList.contains("open")) initChatSession();
   }
 
-  const isPhase2Coding = runArgs.mode === "phase2" && p?.type === "coding";
+  const isPhase2Coding = runArgs.mode === "phase2";
   state.explainLocked = isPhase2Coding;
   if (isPhase2Coding) {
     if (els.explainList) els.explainList.innerHTML = "";
     if (els.explainInput) els.explainInput.value = "";
+    state.explainAttempts = 0;
+    state.explainGateLockTime = Date.now();
+    updateAttemptCounter();
+    logEvent("gate_triggered", {
+      problemId: p.id,
+      triggerSource: "problem_load",
+    });
   }
   applyExplainLock();
   applyDescLock();
@@ -1487,15 +1497,311 @@ function applyDescLock() {
   els.codeArea?.classList.toggle("editor-locked", needsLock);
 }
 
-// TODO: replace with real criteria
-function checkExplainCriteria(text) {
-  return text.trim().length >= 200;
+function updateAttemptCounter() {
+  // Attempt count is tracked in state.explainAttempts for logging only; no UI display
 }
 
-// TODO: replace with real AI call
-async function generateExplainFeedback(_text) {
-  await new Promise((r) => setTimeout(r, 300));
-  return "(샘플 피드백) 설명을 잘 받았습니다. 접근 방법을 좀 더 구체적으로 설명해 주세요.";
+const GATE_SYSTEM_PROMPT = `You are an Explanation Gate evaluator for a coding education research study. Your role is to evaluate whether a user's explanation of a problem-solving approach adequately addresses specific rubric items.
+
+You will receive:
+1. The problem title and a set of rubric items, each with an ID, dimension, level, and description
+2. The user's explanation of how they understand the solution
+
+For each rubric item, evaluate the user's explanation on two independent dimensions:
+
+SUFFICIENCY: Did the user's explanation address this rubric item at all?
+- "sufficient": The explanation contains content that addresses this item
+- "insufficient": The explanation does not address this item or only mentions it in passing without substance
+
+CORRECTNESS: Is the user's explanation factually accurate for this item?
+- "correct": The explanation is factually accurate
+- "incorrect": The explanation contains a factual error or misconception
+- "not_applicable": The item was not addressed (insufficient), so correctness cannot be evaluated
+
+IMPORTANT RULES:
+- Evaluate each rubric item independently using pointwise evaluation
+- Base your evaluation strictly on what the user wrote, not on what they might know
+- Do not infer understanding beyond what is explicitly stated
+- An explanation can be sufficient but incorrect (user addressed the topic but got it wrong)
+- Be strict but fair. Surface-level restatements without explaining WHY or HOW do not count as sufficient for "why" level items
+- All feedback text must be written in Korean (한국어)
+
+Respond ONLY with valid JSON in the following format, no other text:
+{
+  "evaluations": [
+    {
+      "rubric_id": "R1",
+      "sufficiency": "sufficient or insufficient",
+      "correctness": "correct or incorrect or not_applicable",
+      "feedback": "한국어로 평가 결과를 설명하는 한 문장"
+    }
+  ]
+}`;
+
+function gateDetectShallow(explanation, recentMessages) {
+  if (!recentMessages || !recentMessages.length) {
+    return { isShallow: false, reason: null, message: null };
+  }
+  const SHALLOW_MSG =
+    "이 설명은 AI 어시스턴트의 답변과 매우 유사합니다. 코드가 어떻게 작동하는지, 그 이유는 무엇인지 자신의 말로 설명해주세요.";
+
+  const expTokens = new Set(
+    explanation.toLowerCase().split(/\s+/).filter(Boolean),
+  );
+  if (expTokens.size === 0)
+    return { isShallow: false, reason: null, message: null };
+
+  const recent = recentMessages.slice(-5).filter((m) => typeof m === "string");
+
+  // 개별 메시지와 Jaccard 비교 (단일 메시지 복붙 탐지)
+  for (const msg of recent) {
+    const msgTokens = new Set(msg.toLowerCase().split(/\s+/).filter(Boolean));
+    const intersection = [...expTokens].filter((t) => msgTokens.has(t)).length;
+    const union = new Set([...expTokens, ...msgTokens]).size;
+    if (union > 0 && intersection / union > 0.7) {
+      return {
+        isShallow: true,
+        reason: "generator_copy",
+        message: SHALLOW_MSG,
+      };
+    }
+  }
+
+  // 전체 AI 메시지 합산 대비 포함률 확인 (다수 메시지 연속 복붙 탐지)
+  // 짧은 설명은 어휘 겹침이 우연히 높을 수 있으므로 최소 토큰 수 이상일 때만 적용
+  if (expTokens.size >= 15) {
+    const allAiTokens = new Set(
+      recent.flatMap((m) => m.toLowerCase().split(/\s+/).filter(Boolean)),
+    );
+    const overlapCount = [...expTokens].filter((t) =>
+      allAiTokens.has(t),
+    ).length;
+    const containment = overlapCount / expTokens.size;
+    if (containment > 0.8) {
+      return {
+        isShallow: true,
+        reason: "generator_copy",
+        message: SHALLOW_MSG,
+      };
+    }
+  }
+
+  return { isShallow: false, reason: null, message: null };
+}
+
+function gateDetermineUnlock(evaluations, rubric) {
+  const requiredIds = new Set(
+    (rubric.rubric_items || []).filter((r) => r.required).map((r) => r.id),
+  );
+  const requiredEvals = evaluations.filter((e) => requiredIds.has(e.rubric_id));
+  if (requiredEvals.length === 0) {
+    return { shouldUnlock: false, unlockType: null, message: null };
+  }
+  const allSufficientAndCorrect = requiredEvals.every(
+    (e) => e.sufficiency === "sufficient" && e.correctness === "correct",
+  );
+  if (allSufficientAndCorrect) {
+    return {
+      shouldUnlock: true,
+      unlockType: "full",
+      message: "모든 항목을 올바르게 설명했습니다. 에디터가 열립니다.",
+    };
+  }
+  return { shouldUnlock: false, unlockType: null, message: null };
+}
+
+function gateCharCountFallback(explanation) {
+  const sufficient = explanation.trim().length >= 200;
+  return {
+    evaluations: [],
+    unlock: {
+      shouldUnlock: sufficient,
+      unlockType: sufficient ? "full" : null,
+      message: sufficient ? "에디터가 열립니다." : null,
+    },
+    shallowDetection: { isShallow: false, reason: null, message: null },
+  };
+}
+
+async function callGateApi(text) {
+  const p = currentProblem();
+
+  // Load rubric from static data file (client-side, same as problems.json)
+  let rubric = null;
+  try {
+    const r = await fetch(`data/rubrics/${p?.id}.json`);
+    if (r.ok) rubric = await r.json();
+  } catch (_) {
+    /* rubric not found → charcount fallback */
+  }
+
+  // Shallow detection against recent AI assistant messages
+  const recentAssistantMsgs = aiHistory
+    .filter((m) => m.role === "assistant" && typeof m.content === "string")
+    .slice(-5)
+    .map((m) => m.content);
+  const shallowDetection = gateDetectShallow(text, recentAssistantMsgs);
+
+  if (!rubric) {
+    return gateCharCountFallback(text);
+  }
+
+  // Build user message
+  const itemsJson = JSON.stringify(
+    (rubric.rubric_items || []).map((r) => ({
+      id: r.id,
+      dimension: r.dimension,
+      level: r.level,
+      description: r.description,
+    })),
+    null,
+    2,
+  );
+  const userMessage = `문제: ${rubric.problem_title}\n\n평가 항목:\n${itemsJson}\n\n사용자 설명:\n${text}`;
+
+  // Call /api/chat — same pattern as sendAI()
+  const res = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: getModel(),
+      messages: [
+        { role: "system", content: GATE_SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.0,
+      max_tokens: 2000,
+    }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(
+      `평가 API 오류 ${res.status}: ${data?.error?.message || JSON.stringify(data)}`,
+    );
+  }
+
+  // Buffer the SSE stream (identical parsing to sendAI)
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let accumulated = "";
+  let buf = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (payload === "[DONE]") continue;
+      try {
+        const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content;
+        if (delta) accumulated += delta;
+      } catch (_) {
+        /* partial JSON — skip */
+      }
+    }
+  }
+
+  // Strip markdown code fences if the model wrapped the JSON
+  let cleanText = accumulated.trim();
+  const fenceMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fenceMatch) cleanText = fenceMatch[1].trim();
+
+  // Parse accumulated JSON from LLM
+  let evaluations = [];
+  try {
+    const parsed = JSON.parse(cleanText);
+    evaluations = Array.isArray(parsed?.evaluations) ? parsed.evaluations : [];
+  } catch (_) {
+    throw new Error("응답을 파싱할 수 없습니다. 다시 시도해주세요.");
+  }
+
+  const unlock = gateDetermineUnlock(evaluations, rubric);
+
+  return {
+    evaluations,
+    unlock,
+    shallowDetection,
+  };
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderRubricFeedback(gateResponse) {
+  const { evaluations, unlock, shallowDetection } = gateResponse;
+  const container = document.createElement("div");
+  container.className = "rubric-feedback";
+
+  if (shallowDetection?.isShallow && shallowDetection.message) {
+    const warn = document.createElement("div");
+    warn.className = "shallow-warning";
+    warn.textContent = shallowDetection.message;
+    container.appendChild(warn);
+  }
+
+  for (const ev of evaluations) {
+    const item = document.createElement("div");
+    let stateClass = "missing";
+    if (ev.sufficiency === "sufficient" && ev.correctness === "correct") {
+      stateClass = "correct";
+    } else if (
+      ev.sufficiency === "sufficient" &&
+      ev.correctness === "incorrect"
+    ) {
+      stateClass = "warning";
+    }
+    item.className = `rubric-item ${stateClass}`;
+
+    const icon = { correct: "✅", warning: "⚠️", missing: "❌" }[stateClass];
+    const label = {
+      correct: "충분·정확",
+      warning: "충분·부정확",
+      missing: "불충분",
+    }[stateClass];
+    item.innerHTML =
+      `<span class="rubric-item-icon">${icon}</span>` +
+      `<div class="rubric-item-body">` +
+      `<span class="rubric-item-label">${escapeHtml(ev.rubric_id)} · ${label}</span>` +
+      `<span class="rubric-item-feedback">${escapeHtml(ev.feedback || "")}</span>` +
+      `</div>`;
+    container.appendChild(item);
+  }
+
+  if (unlock?.shouldUnlock) {
+    const msg = document.createElement("div");
+    msg.className = "explain-unlock-msg";
+    msg.textContent = unlock.message || "모든 항목을 올바르게 설명했습니다.";
+    container.appendChild(msg);
+
+    const btn = document.createElement("button");
+    btn.className = "btn primary explain-unlock-btn";
+    btn.textContent = "에디터 열기";
+    btn.addEventListener("click", () => {
+      logEvent("gate_unlocked", {
+        unlockType: unlock.unlockType,
+        totalAttempts: state.explainAttempts,
+        totalTimeMs: state.explainGateLockTime
+          ? Date.now() - state.explainGateLockTime
+          : null,
+      });
+      state.explainLocked = false;
+      applyExplainLock();
+    });
+    container.appendChild(btn);
+  }
+
+  els.explainList.appendChild(container);
+  els.explainList.scrollTop = els.explainList.scrollHeight;
 }
 
 function addExplainBubble(kind, text) {
@@ -1509,19 +1815,53 @@ function addExplainBubble(kind, text) {
 async function sendExplain() {
   const text = els.explainInput.value.trim();
   if (!text) return;
+
   addExplainBubble("user", text);
   els.explainInput.value = "";
   els.explainSend.disabled = true;
+
+  state.explainAttempts += 1;
+  updateAttemptCounter();
+
+  logEvent("explanation_submitted", {
+    attemptNumber: state.explainAttempts,
+    wordCount: text.split(/\s+/).filter(Boolean).length,
+    charCount: text.length,
+    timeSpentMs: state.explainGateLockTime
+      ? Date.now() - state.explainGateLockTime
+      : null,
+  });
+
+  const evaluatingEl = document.createElement("div");
+  evaluatingEl.className = "explain-bubble bot";
+  evaluatingEl.textContent = "설명을 평가 중입니다…";
+  els.explainList.appendChild(evaluatingEl);
+  els.explainList.scrollTop = els.explainList.scrollHeight;
+
+  let succeeded = false;
   try {
-    const fb = await generateExplainFeedback(text);
-    addExplainBubble("bot", fb);
-    if (checkExplainCriteria(text)) {
-      state.explainLocked = false;
-      applyExplainLock();
-      logEvent("explain_unlock", { chars: text.length });
+    const gateResponse = await callGateApi(text);
+    succeeded = true;
+    evaluatingEl.remove();
+
+    renderRubricFeedback(gateResponse);
+
+    logEvent("evaluation_completed", {
+      attemptNumber: state.explainAttempts,
+      evaluations: gateResponse.evaluations,
+    });
+  } catch (e) {
+    // evaluatingEl may already be removed on success path; only update if still in DOM
+    if (!succeeded) {
+      evaluatingEl.textContent = `평가 오류: ${e.message}. 다시 시도해주세요.`;
+    } else {
+      addExplainBubble("bot", `평가 오류: ${e.message}. 다시 시도해주세요.`);
     }
   } finally {
-    els.explainSend.disabled = false;
+    if (state.explainLocked) {
+      els.explainSend.disabled = false;
+    }
+    state.explainGateLockTime = Date.now();
   }
 }
 

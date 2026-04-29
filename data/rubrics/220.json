@@ -1,0 +1,13 @@
+{
+  "task_id": "220",
+  "problem_title": "나만의 CLI 프로그램 설계",
+  "rubric_items": [
+    {
+      "id": "R1",
+      "dimension": "conceptual_understanding",
+      "level": "what",
+      "description": "설계할 CLI 프로그램의 목적·주요 기능·명령어 구조를 설명할 수 있다",
+      "required": true
+    }
+  ]
+}

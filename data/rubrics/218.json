@@ -1,0 +1,13 @@
+{
+  "task_id": "218",
+  "problem_title": "나만의 코딩 문제 만들기",
+  "rubric_items": [
+    {
+      "id": "R1",
+      "dimension": "conceptual_understanding",
+      "level": "what",
+      "description": "문제에서 요구하는 바와 자신이 만들 문제의 주제·형식·입출력 구조를 설명할 수 있다",
+      "required": true
+    }
+  ]
+}
