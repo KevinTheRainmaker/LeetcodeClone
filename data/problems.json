@@ -1,6 +1,6 @@
 [
   {
-    "id": 6,
+    "id": 1,
     "slug": "joystick",
     "title": "조이스틱",
     "difficulty": "medium",
@@ -25,7 +25,7 @@
     "type": "coding"
   },
   {
-    "id": 7,
+    "id": 2,
     "slug": "way-to-school",
     "title": "등굣길",
     "difficulty": "hard",
@@ -57,7 +57,7 @@
     "type": "coding"
   },
   {
-    "id": 18,
+    "id": 3,
     "type": "creative-problem",
     "slug": "make-your-own-problem",
     "title": "나만의 코딩 문제 만들기",
@@ -74,7 +74,7 @@
     }
   },
   {
-    "id": 19,
+    "id": 4,
     "type": "cli-given",
     "slug": "student-grade-manager",
     "title": "학생 성적 관리 시스템",
@@ -96,7 +96,7 @@
     }
   },
   {
-    "id": 20,
+    "id": 5,
     "type": "creative-cli",
     "slug": "design-your-cli",
     "title": "나만의 CLI 프로그램 설계",
