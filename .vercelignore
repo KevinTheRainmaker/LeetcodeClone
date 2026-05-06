@@ -9,3 +9,6 @@ v2-check.png
 v2-final.png
 explanation_gate_spec.md
 README.md
+Dockerfile
+docker-compose.yml
+.env.example

@@ -32,7 +32,10 @@
       "Bash(git status *)",
       "Bash(vercel --version)",
       "Bash(vercel whoami *)",
-      "Bash(Get-Command vercel *)"
+      "Bash(Get-Command vercel *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\HCIS\\\\Desktop\\\\git\\\\LeetcodeClone\\\\judge-server\\\\\" -Recurse -Force | Select-Object FullName)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)"
     ]
   }
 }

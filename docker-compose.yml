@@ -1,0 +1,12 @@
+services:
+  judge:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data:ro
+    environment:
+      DATA_DIR: /app/data
+      JUDGE_SHARED_TOKEN: ${JUDGE_SHARED_TOKEN:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+    restart: unless-stopped

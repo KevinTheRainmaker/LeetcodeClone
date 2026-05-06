@@ -13,8 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+_data_env = os.getenv("DATA_DIR", "").strip()
+DATA_DIR = Path(_data_env) if _data_env else Path(__file__).resolve().parent.parent / "data"
+
+PYTHON_CMD = "python3" if shutil.which("python3") else "python"
 PROBLEMS_PATH = DATA_DIR / "problems.json"
 TESTCASES_PATH = DATA_DIR / "testcases.json"
 PHASE2_PROBLEMS_PATH = DATA_DIR / "phase2_problems.json"
@@ -194,7 +196,7 @@ def run_python(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], 
     runner = f'''import json\n\n{code}\n\nFN_NAME = {json.dumps(fn_name)}\nfn = globals().get(FN_NAME)\nif not callable(fn):\n    print(json.dumps({{"fatal": f"Function '{{FN_NAME}}' not found."}}, ensure_ascii=False))\n    raise SystemExit(0)\n\nCASES = {json.dumps(payload, ensure_ascii=False)}\nfor c in CASES:\n    try:\n        actual = fn(*c["input"])\n        print(json.dumps({{"index": c["index"], "ok": actual == c["expected"], "actual": actual}}, ensure_ascii=False))\n    except Exception as e:\n        print(json.dumps({{"index": c["index"], "ok": False, "error": str(e)}}, ensure_ascii=False))\n'''
     script = work / "run.py"
     script.write_text(runner, encoding="utf-8")
-    proc = run_command(["python3", str(script)], cwd=work)
+    proc = run_command([PYTHON_CMD, str(script)], cwd=work)
     return parse_line_results(proc, cases)
 
 
@@ -286,7 +288,7 @@ def run_java(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], wo
         exp_type = java_type_str(tc["expected"])
         lines.append(f"            {exp_type} expected = {java_literal(tc['expected'])};")
         args = ", ".join(arg_names)
-        lines.append(f"            {exp_type} actual = {fn_name}({args});")
+        lines.append(f"            {exp_type} actual = new Main().{fn_name}({args});")
         lines.append("            boolean ok = java.util.Objects.deepEquals(actual, expected);")
         lines.append(
             f'            System.out.println("{{\\"index\\":{idx},\\"ok\\":" + (ok ? "true" : "false") + ",\\"actual\\":" + toJson(actual) + "}}");'
