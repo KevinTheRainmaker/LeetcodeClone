@@ -29,7 +29,10 @@
       "Bash(awk '{print $2}')",
       "Bash(python3 *)",
       "Bash(git commit -m ' *)",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "Bash(vercel --version)",
+      "Bash(vercel whoami *)",
+      "Bash(Get-Command vercel *)"
     ]
   }
 }
