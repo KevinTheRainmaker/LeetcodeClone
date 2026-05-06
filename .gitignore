@@ -6,7 +6,8 @@ __pycache__/
 .vercel
 .env*
 .playwright-mcp
-*.png
+/v2-check.png
+/v2-final.png
 .design_v*
 leetcode-pattern-500/
 CLAUDE.md

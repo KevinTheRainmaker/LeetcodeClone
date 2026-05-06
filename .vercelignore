@@ -1,0 +1,11 @@
+judge-server/
+leetcode-pattern-500/
+docs/
+.claude/
+.playwright-mcp/
+.design_v2/
+tasks/
+v2-check.png
+v2-final.png
+explanation_gate_spec.md
+README.md
