@@ -95,12 +95,16 @@ def get_problem(problem_id: int) -> Dict[str, Any]:
 
 def get_cases(problem_id: int, mode: str) -> List[Dict[str, Any]]:
     path = PHASE2_TESTCASES_PATH if problem_id >= 200 else TESTCASES_PATH
-    testcases = load_json(path)
+    try:
+        testcases = load_json(path)
+    except RuntimeError:
+        return []
     key = str(problem_id)
     if key not in testcases:
-        return []  # creative 유형은 testcase 없음
-    visible = testcases[key].get("visible", [])
-    hidden = testcases[key].get("hidden", [])
+        return []
+    entry = testcases[key] or {}
+    visible = entry.get("visible") or []
+    hidden = entry.get("hidden") or []
     return visible + hidden if mode == "submit" else visible
 
 
@@ -462,8 +466,8 @@ def run_cli(language: str, code: str, cases: List[Dict[str, Any]], work: Path) -
     results = []
     start = time.perf_counter()
     for i, tc in enumerate(cases, start=1):
-        stdin_text = tc.get("stdin", "")
-        expected = (tc.get("expected_output", "") or "").strip()
+        stdin_text = tc.get("stdin") or ""
+        expected = (tc.get("expected_output") or "").strip()
         try:
             proc = subprocess.run(
                 run_cmd, cwd=str(work),
@@ -505,15 +509,22 @@ def judge(req: JudgeRequest):
         raise HTTPException(status_code=400, detail="mode must be run|submit")
 
     problem = get_problem(req.problemId)
-    problem_type = problem.get("type", "coding")
+    problem_type = problem.get("type") or "coding"
 
-    # creative 유형은 프론트에서 채점 없이 처리 — 혹시 호출되면 빈 성공 반환
-    if problem_type in ("creative-problem", "creative-cli"):
+    # creative/unknown 유형은 채점 없이 빈 성공 반환
+    CODING_TYPES = {"coding", "cli-given"}
+    if problem_type not in CODING_TYPES:
         return {"status": "Accepted", "passed": 0, "total": 0, "caseResults": [], "runtimeMs": 0}
 
     cases = get_cases(req.problemId, req.mode)
     if not cases:
         raise HTTPException(status_code=400, detail="No testcases")
+
+    # testcase 스키마 기본 검증
+    if problem_type == "coding":
+        for tc in cases:
+            if not isinstance(tc.get("input"), list):
+                raise HTTPException(status_code=400, detail=f"testcase input must be a list, got: {type(tc.get('input')).__name__}")
 
     work = Path(tempfile.mkdtemp(prefix="judge_"))
     started = time.perf_counter()
@@ -526,6 +537,15 @@ def judge(req: JudgeRequest):
             out = run_cpp(problem, req.code, cases, work)
         else:
             out = run_java(problem, req.code, cases, work)
+    except ValueError as e:
+        out = {
+            "status": "Unsupported Type",
+            "passed": 0,
+            "total": len(cases),
+            "caseResults": [],
+            "stderr": str(e),
+            "runtimeMs": 0,
+        }
     except subprocess.TimeoutExpired:
         out = {
             "status": "Time Limit Exceeded",
