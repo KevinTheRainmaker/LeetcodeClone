@@ -123,6 +123,7 @@ function cacheEls() {
     "explainList",
     "explainInput",
     "explainSend",
+    "explainBack",
     "explainResize",
     "explainAttempt",
   ];
@@ -1798,19 +1799,33 @@ function renderRubricFeedback(gateResponse) {
     return;
   }
 
-  // 모든 단위 통과 → unlock 버튼 표시
+  // 모든 단위 통과 → Submit / 에디터로 돌아가기 버튼 표시
   const unlockContainer = document.createElement("div");
   unlockContainer.className = "rubric-feedback";
 
   const msg = document.createElement("div");
   msg.className = "explain-unlock-msg";
-  msg.textContent = "모든 설명을 완료했습니다. 에디터가 열립니다.";
+  msg.textContent =
+    "모든 설명을 완료했습니다. 제출하거나 코드를 수정할 수 있습니다.";
   unlockContainer.appendChild(msg);
 
-  const btn = document.createElement("button");
-  btn.className = "btn primary explain-unlock-btn";
-  btn.textContent = "에디터 열기";
-  btn.addEventListener("click", () => {
+  const btnRow = document.createElement("div");
+  btnRow.style.cssText = "display:flex;gap:8px;margin-top:8px;";
+
+  const backBtn = document.createElement("button");
+  backBtn.className = "btn";
+  backBtn.textContent = "에디터로 돌아가기";
+  backBtn.addEventListener("click", () => {
+    state.explainPassed = false;
+    state.explainLocked = false;
+    applyExplainLock();
+    logEvent("gate_back_to_editor", { totalAttempts: state.explainAttempts });
+  });
+
+  const submitBtn = document.createElement("button");
+  submitBtn.className = "btn primary explain-unlock-btn";
+  submitBtn.textContent = "Submit 제출";
+  submitBtn.addEventListener("click", () => {
     logEvent("gate_unlocked", {
       unlockType: "full",
       totalAttempts: state.explainAttempts,
@@ -1822,8 +1837,12 @@ function renderRubricFeedback(gateResponse) {
     state.explainPassed = true;
     state.explainLocked = false;
     applyExplainLock();
+    judge("submit");
   });
-  unlockContainer.appendChild(btn);
+
+  btnRow.appendChild(backBtn);
+  btnRow.appendChild(submitBtn);
+  unlockContainer.appendChild(btnRow);
 
   els.explainList.appendChild(unlockContainer);
   els.explainList.scrollTop = els.explainList.scrollHeight;
@@ -2103,6 +2122,12 @@ function wireUp() {
       e.preventDefault();
       sendExplain();
     }
+  });
+  els.explainBack?.addEventListener("click", () => {
+    state.explainLocked = false;
+    state.explainPassed = false;
+    applyExplainLock();
+    logEvent("gate_cancelled", { attempts: state.explainAttempts });
   });
 
   // Click outside tweaks to close
