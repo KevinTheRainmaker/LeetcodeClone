@@ -1,8 +1,12 @@
+import ctypes
 import json
 import os
 import re
+import resource
+import secrets
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -23,7 +27,13 @@ PHASE2_PROBLEMS_PATH = DATA_DIR / "phase2_problems.json"
 PHASE2_TESTCASES_PATH = DATA_DIR / "phase2_testcases.json"
 TIME_LIMIT_SEC = 2.0
 SHARED_TOKEN = os.getenv("JUDGE_SHARED_TOKEN", "").strip()
+# Set JUDGE_AUTH_OPTIONAL=1 only for local dev to allow unauthenticated requests.
+AUTH_OPTIONAL = os.getenv("JUDGE_AUTH_OPTIONAL", "").strip().lower() in {"1", "true", "yes"}
+EXP_SUFFIX = "_exp"
 PUBLIC_PATHS = {"/health", "/"}
+
+MAX_CODE_BYTES = int(os.getenv("MAX_CODE_BYTES", "20000"))
+MAX_OUTPUT_CHARS = int(os.getenv("MAX_OUTPUT_CHARS", "4000"))
 
 _origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
 if _origins_env:
@@ -47,13 +57,19 @@ async def bearer_auth(request: Request, call_next):
     if request.method == "OPTIONS" or request.url.path in PUBLIC_PATHS:
         return await call_next(request)
     if not SHARED_TOKEN:
-        # Auth disabled — keep legacy open behaviour for local dev.
-        return await call_next(request)
+        # Fail-closed: in production, missing token means refuse all protected requests.
+        # Set JUDGE_AUTH_OPTIONAL=1 to opt out for local dev.
+        if AUTH_OPTIONAL:
+            return await call_next(request)
+        return JSONResponse(
+            {"error": "Server misconfigured: JUDGE_SHARED_TOKEN is not set"},
+            status_code=500,
+        )
     header = request.headers.get("authorization", "")
     if not header.lower().startswith("bearer "):
         return JSONResponse({"error": "Missing bearer token"}, status_code=401)
     provided = header[7:].strip()
-    if provided != SHARED_TOKEN:
+    if not secrets.compare_digest(provided, SHARED_TOKEN):
         return JSONResponse({"error": "Invalid bearer token"}, status_code=401)
     return await call_next(request)
 
@@ -63,6 +79,7 @@ class JudgeRequest(BaseModel):
     language: str
     code: str
     mode: str = "run"  # run | submit
+    userId: str
 
 
 class ClientLogRequest(BaseModel):
@@ -108,13 +125,88 @@ def to_snake(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
+# ───────────────── Sandbox hardening (Railway-compatible) ─────────────────
+# Layered defenses inside the container, since Railway forbids privileged ops:
+#   1. Non-root container user (Dockerfile)
+#   2. setrlimit + minimal env + PR_SET_NO_NEW_PRIVS (preexec_fn below)
+#   3. unshare -rn for network namespace isolation (probed at startup)
+
+PR_SET_NO_NEW_PRIVS = 38
+try:
+    _LIBC = ctypes.CDLL("libc.so.6", use_errno=True)
+except OSError:
+    _LIBC = None
+
+_RLIMIT_AS_BYTES = int(os.getenv("JUDGE_RLIMIT_AS_MB", "512")) * 1024 * 1024
+_RLIMIT_CPU_SEC = int(os.getenv("JUDGE_RLIMIT_CPU_SEC", "30"))
+_RLIMIT_FSIZE_BYTES = int(os.getenv("JUDGE_RLIMIT_FSIZE_MB", "16")) * 1024 * 1024
+_RLIMIT_NOFILE = int(os.getenv("JUDGE_RLIMIT_NOFILE", "256"))
+
+_HARDENED_ENV = {
+    "PATH": "/usr/local/bin:/usr/bin:/bin",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "HOME": "/tmp",
+}
+
+
+def _hardened_preexec():
+    # Ignore failures: rlimits differ across kernels/macOS; prctl unavailable on non-Linux.
+    for res, val in (
+        (resource.RLIMIT_AS, _RLIMIT_AS_BYTES),
+        (resource.RLIMIT_CPU, _RLIMIT_CPU_SEC),
+        (resource.RLIMIT_FSIZE, _RLIMIT_FSIZE_BYTES),
+        (resource.RLIMIT_NOFILE, _RLIMIT_NOFILE),
+    ):
+        try:
+            resource.setrlimit(res, (val, val))
+        except (ValueError, OSError):
+            pass
+    if _LIBC is not None:
+        try:
+            _LIBC.prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
+        except Exception:
+            pass
+
+
+def _probe_netns() -> bool:
+    # Probe whether `unshare -rn` (unprivileged user+net namespace) works on this host.
+    if os.getenv("JUDGE_DISABLE_NETNS", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    try:
+        r = subprocess.run(
+            ["unshare", "-rn", "--", "/bin/true"],
+            capture_output=True, timeout=2,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+_NETNS_AVAILABLE = _probe_netns()
+print(
+    f"[judge] sandbox: rlimit AS={_RLIMIT_AS_BYTES // (1024*1024)}MB CPU={_RLIMIT_CPU_SEC}s "
+    f"FSIZE={_RLIMIT_FSIZE_BYTES // (1024*1024)}MB NOFILE={_RLIMIT_NOFILE}; "
+    f"netns={'on' if _NETNS_AVAILABLE else 'OFF'}",
+    file=sys.stderr,
+)
+
+
+def _wrap_isolated(cmd: List[str]) -> List[str]:
+    if _NETNS_AVAILABLE:
+        return ["unshare", "-rn", "--", *cmd]
+    return cmd
+
+
 def run_command(cmd: List[str], cwd: Path, timeout: float = TIME_LIMIT_SEC) -> subprocess.CompletedProcess:
     return subprocess.run(
-        cmd,
+        _wrap_isolated(cmd),
         cwd=str(cwd),
         capture_output=True,
         text=True,
         timeout=timeout,
+        env=_HARDENED_ENV,
+        preexec_fn=_hardened_preexec,
     )
 
 
@@ -466,10 +558,11 @@ def run_cli(language: str, code: str, cases: List[Dict[str, Any]], work: Path) -
         expected = (tc.get("expected_output", "") or "").strip()
         try:
             proc = subprocess.run(
-                run_cmd, cwd=str(work),
+                _wrap_isolated(run_cmd), cwd=str(work),
                 input=stdin_text, capture_output=True, text=True, timeout=TIME_LIMIT_SEC,
+                env=_HARDENED_ENV, preexec_fn=_hardened_preexec,
             )
-            actual = (proc.stdout or "").strip()
+            actual = truncate_output((proc.stdout or "").strip())
             expected_lines = [ln.strip() for ln in expected.splitlines() if ln.strip()]
             passed = all(ln in actual for ln in expected_lines)
             results.append({
@@ -491,6 +584,38 @@ def run_cli(language: str, code: str, cases: List[Dict[str, Any]], work: Path) -
         "caseResults": results, "stderr": "", "runtimeMs": elapsed,
     }
 
+def load_allowed_users():
+    path = DATA_DIR / "allowed_users.json"
+    if not path.exists():
+        return set()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(data, list):
+        return set(data)
+    if isinstance(data, dict):
+        return set(data.get("users", []))
+    return set()
+
+def base_user_id(user_id: str) -> str:
+    # Strip only the `_exp` (experimental variant) suffix; otherwise return as-is.
+    # Avoid splitting on the first underscore so that IDs like "kevin_anything"
+    # cannot impersonate "kevin" in the allowlist.
+    if user_id.endswith(EXP_SUFFIX):
+        return user_id[: -len(EXP_SUFFIX)]
+    return user_id
+
+def validate_user(user_id: str):
+    allowed = load_allowed_users()
+    if not allowed:
+        raise HTTPException(status_code=500, detail="allowed_users.json is missing or empty")
+    if base_user_id(user_id) not in allowed:
+        raise HTTPException(status_code=403, detail="User is not allowed")
+
+
+def truncate_output(s: Optional[str]) -> str:
+    if not s:
+        return ""
+    s = str(s)
+    return s[:MAX_OUTPUT_CHARS]
 
 @app.get("/health")
 def health():
@@ -499,6 +624,10 @@ def health():
 
 @app.post("/judge")
 def judge(req: JudgeRequest):
+    validate_user(req.userId)
+    if len(req.code.encode("utf-8")) > MAX_CODE_BYTES:
+        raise HTTPException(status_code=413, detail="Request entity too large")
+
     if req.language not in {"java", "python", "cpp"}:
         raise HTTPException(status_code=400, detail="Unsupported language")
     if req.mode not in {"run", "submit"}:
@@ -552,6 +681,7 @@ def _safe_segment(s: str, default: str = "anon") -> str:
 
 @app.post("/client/log")
 def client_log(req: ClientLogRequest):
+    validate_user(req.userId)
     log_root = Path(__file__).resolve().parent / "client_logs"
     user_dir = log_root / _safe_segment(req.userId)
     user_dir.mkdir(parents=True, exist_ok=True)
@@ -562,6 +692,7 @@ def client_log(req: ClientLogRequest):
         else f"{phase}_meta.jsonl"
     )
     fpath = user_dir / fname
+    payload = req.model_dump() if hasattr(req, "model_dump") else req.dict()
     with fpath.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(req.model_dump(), ensure_ascii=False) + "\n")
+        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
     return {"ok": True}
