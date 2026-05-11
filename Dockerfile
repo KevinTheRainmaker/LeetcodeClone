@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     default-jdk \
     g++ \
     util-linux \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user — submitted code (run as the same user that runs FastAPI)
@@ -27,8 +28,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app/judge-server
 
-USER runner
-
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
