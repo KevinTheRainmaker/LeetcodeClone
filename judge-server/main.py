@@ -42,10 +42,12 @@ else:
     _allowed_origins = ["*"]
 
 app = FastAPI(title="LeetCode Clone Judge Server")
+# Judge uses Bearer headers, not cookies — keep credentials off so
+# allow_origins=["*"] (default when ALLOWED_ORIGINS unset) is valid for browsers.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
