@@ -1688,6 +1688,12 @@ body {
   outline: none;
   border-color: var(--accent);
 }
+.explain-foot-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: flex-end;
+}
 
 /* ── Explain attempt counter ── */
 .explain-attempt {

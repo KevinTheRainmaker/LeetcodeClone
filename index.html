@@ -103,7 +103,9 @@
               <div class="explain-title">
                 이 문제를 푸는 방법을 설명해주세요
               </div>
-              <div class="explain-sub">충분히 설명하면 에디터가 열립니다.</div>
+              <div class="explain-sub">
+                코드의 각 함수별로 설명하면 에디터가 열립니다.
+              </div>
               <div class="explain-attempt" id="explainAttempt"></div>
             </div>
             <div class="explain-list" id="explainList"></div>
@@ -118,7 +120,10 @@
                 id="explainInput"
                 placeholder="문제를 푸는 솔루션을 자세히 설명해주세요"
               ></textarea>
-              <button class="btn primary" id="explainSend">전송</button>
+              <div class="explain-foot-btns">
+                <button class="btn" id="explainBack">에디터로 돌아가기</button>
+                <button class="btn primary" id="explainSend">전송</button>
+              </div>
             </div>
           </div>
           <div class="editor-wrap">
