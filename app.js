@@ -1051,12 +1051,38 @@ async function judge(mode) {
       : `${state.lang} ${els.fileName.textContent}`;
   termPush(`<span class="term-muted">$ ${escapeHtml(cmd)}</span>`);
 
+  const sessionUid =
+    session.userId ||
+    localStorage.getItem(SESSION_USER_KEY) ||
+    runArgs.userIdParam ||
+    "";
+  const { baseId } = resolveUserId(sessionUid);
+  if (!baseId) {
+    termPush(`<span class="term-err">Judge Error</span> <span class="term-muted">userId is missing. Please login again.</span>`);
+    showLogin("세션이 만료되었습니다. 사용자 ID를 다시 입력하세요.");
+    return;
+  }
+  // Keep session/user cache aligned before judge requests.
+  if (session.userId !== baseId) session.userId = baseId;
+  localStorage.setItem(SESSION_USER_KEY, baseId);
+
   const body = {
     problemId: p.id,
     language: state.lang,
     code: state.code,
     mode,
+    userId: baseId,
   };
+  console.log("[judge request body]", body);
+  termPush(
+    `<span class="term-muted">[debug] payload userId=${escapeHtml(String(body.userId || ""))}</span>`,
+  );
+  if (!body.userId) {
+    termPush(
+      `<span class="term-err">Judge Error</span> <span class="term-muted">blocked request because userId is empty</span>`,
+    );
+    return;
+  }
   logEvent(mode, {
     codeLength: state.code.length,
     code: state.code,
@@ -1385,6 +1411,7 @@ async function sendAI() {
         ],
         temperature: 0.6,
         max_tokens: 800,
+        user_id: runArgs.userIdParam,
       }),
     });
     if (!res.ok) {
@@ -1724,7 +1751,7 @@ async function callGateApi(text) {
   const res = await fetch(CHAT_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+      body: JSON.stringify({
       model: getModel(),
       messages: [
         { role: "system", content: GATE_SYSTEM_PROMPT },
@@ -1734,7 +1761,8 @@ async function callGateApi(text) {
         },
       ],
       temperature: 0.0,
-      max_tokens: 500,
+      max_tokens: 2000,
+      user_id: runArgs.userIdParam,
     }),
   });
 
