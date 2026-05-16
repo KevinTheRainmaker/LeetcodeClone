@@ -1233,9 +1233,11 @@ async function initChatSession() {
   state.chatInitialized = true;
 
   const imageBlocks = [];
-  for (const path of p.images || []) {
+  for (const entry of p.images || []) {
+    const img = resolveImage(entry);
+    if (!img) continue;
     try {
-      const dataUrl = await fetchAsDataUrl(path);
+      const dataUrl = await fetchAsDataUrl(img.src);
       imageBlocks.push({ type: "image_url", image_url: { url: dataUrl } });
     } catch (_) {
       // 이미지 로드 실패 시 스킵 (없는 것으로 간주)
