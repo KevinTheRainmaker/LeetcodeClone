@@ -49,6 +49,10 @@ function isAllowedUser(baseId) {
   return allowedUsers.length === 0 || allowedUsers.includes(baseId);
 }
 
+function currentUserIdForApi() {
+  return session.userId || runArgs.userIdParam || "";
+}
+
 function isTester() {
   return (session.userId || "").startsWith("test_");
 }
@@ -1413,7 +1417,7 @@ async function sendAI() {
         ],
         temperature: 0.6,
         max_tokens: 800,
-        user_id: runArgs.userIdParam,
+        user_id: currentUserIdForApi(),
       }),
     });
     if (!res.ok) {
@@ -1764,7 +1768,7 @@ async function callGateApi(text) {
       ],
       temperature: 0.0,
       max_tokens: 2000,
-      user_id: runArgs.userIdParam,
+      user_id: currentUserIdForApi(),
     }),
   });
 
