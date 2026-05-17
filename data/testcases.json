@@ -1,4 +1,15 @@
 {
+  "1": {
+    "visible": [
+      { "input": ["JAN"], "expected": 23 },
+      { "input": ["JAZ"], "expected": 11 }
+    ],
+    "hidden": [
+      { "input": ["A"], "expected": 0 },
+      { "input": ["BBBBAAAAAB"], "expected": 10 },
+      { "input": ["JERO"], "expected": 37 }
+    ]
+  },
   "6": {
     "visible": [
       {

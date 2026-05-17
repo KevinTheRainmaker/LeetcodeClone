@@ -1,10 +1,15 @@
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     default-jdk \
     g++ \
-    --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    util-linux \
+    gosu \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root user — submitted code (run as the same user that runs FastAPI)
+# never gets root inside the container.
+RUN useradd -m -u 10001 -s /usr/sbin/nologin runner
 
 WORKDIR /app
 
@@ -12,7 +17,20 @@ COPY judge-server/requirements.txt ./judge-server/requirements.txt
 RUN pip install --no-cache-dir -r judge-server/requirements.txt
 
 COPY judge-server/ ./judge-server/
+COPY data/ ./data/
+
+# Only the log directory needs to be writable by the runner.
+RUN mkdir -p /app/judge-server/client_logs \
+ && chown -R runner:runner /app/judge-server/client_logs
+
+ENV DATA_DIR=/app/data
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app/judge-server
 
 EXPOSE 8000
 
-CMD ["uvicorn", "judge-server.main:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]

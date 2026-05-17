@@ -1,6 +1,11 @@
 // Vercel Serverless Function — relay /judge calls to the Mac mini judge-server
 // over an HTTPS Cloudflare Tunnel. Adds Bearer auth so the tunnel is not open.
 
+import {
+  normalizeJudgeBaseUrl,
+  upstreamFetchErrorBody,
+} from "../lib/judgeUpstream.js";
+
 export const config = { maxDuration: 15 };
 
 export default async function handler(req, res) {
@@ -9,7 +14,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const base = process.env.JUDGE_BASE_URL;
+  const base = normalizeJudgeBaseUrl(process.env.JUDGE_BASE_URL);
   if (!base) {
     return res.status(500).json({ error: "JUDGE_BASE_URL is not configured" });
   }
@@ -23,7 +28,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const upstream = await fetch(stripSlash(base) + "/judge", {
+    const upstream = await fetch(`${base}/judge`, {
       method: "POST",
       headers,
       body,
@@ -36,11 +41,7 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(502).json({
       error: "Judge upstream failed",
-      detail: String(err?.message || err),
+      ...upstreamFetchErrorBody(err, { baseUrl: base }),
     });
   }
-}
-
-function stripSlash(u) {
-  return u.endsWith("/") ? u.slice(0, -1) : u;
 }
