@@ -1094,6 +1094,14 @@ body {
   color: var(--text);
   background: var(--panel-2);
 }
+.btn.warn {
+  background: #7a4f00;
+  color: #ffd580;
+  border-color: transparent;
+}
+.btn.warn:hover {
+  filter: brightness(1.15);
+}
 
 /* ─────────── Login overlay ─────────── */
 #loginOverlay {
@@ -1622,12 +1630,15 @@ body {
   padding: 8px 0;
 }
 .explain-bubble {
-  max-width: 80%;
+  max-width: 82%;
   padding: 10px 14px;
   border-radius: 10px;
   font-size: 14px;
   line-height: 1.55;
   white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 .explain-bubble.user {
   align-self: flex-end;
@@ -1636,9 +1647,25 @@ body {
 }
 .explain-bubble.bot {
   align-self: flex-start;
+  max-width: 96%;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   color: var(--text-2);
+  white-space: normal;
+}
+.explain-code-snippet {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  margin: 8px 0 0;
+  overflow-x: auto;
+  white-space: pre;
+  word-break: normal;
+  max-width: 100%;
 }
 .explain-foot {
   flex: 0 0 auto;

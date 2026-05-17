@@ -1,0 +1,4 @@
+{
+  "__comment": "phase2 사용자별 모드 배정. mandatory: gate 완료 전까지 이탈 불가, optional: 언제든 gate 이탈 후 제출 가능",
+  "example_user": "mandatory"
+}

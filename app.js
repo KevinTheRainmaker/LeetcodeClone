@@ -38,6 +38,11 @@ const KB_FLUSH_DELAY = 2500;
 const KB_BATCH_MAX = 200;
 
 let allowedUsers = [];
+let phase2Modes = {};
+
+function isOptionalMode() {
+  return state.phase2Mode === "optional";
+}
 
 function resolveUserId(rawUid) {
   const isExp = rawUid.endsWith(EXP_SUFFIX);
@@ -81,6 +86,7 @@ const state = {
   gateUnits: [],
   gateUnitIndex: 0,
   descSaved: false,
+  phase2Mode: null,
 };
 
 const els = {};
@@ -124,6 +130,7 @@ function cacheEls() {
     "explainInput",
     "explainSend",
     "explainBack",
+    "explainSkip",
     "explainResize",
     "explainAttempt",
   ];
@@ -1508,6 +1515,9 @@ function applyExplainLock() {
   if (els.runBtn) els.runBtn.disabled = locked;
   if (els.submitBtn) els.submitBtn.disabled = locked;
   if (locked && els.nextBtn) els.nextBtn.disabled = true;
+  if (els.explainSkip) {
+    els.explainSkip.style.display = locked && isOptionalMode() ? "" : "none";
+  }
 }
 
 function applyDescLock() {
@@ -2129,6 +2139,22 @@ function wireUp() {
     applyExplainLock();
     logEvent("gate_cancelled", { attempts: state.explainAttempts });
   });
+  els.explainSkip?.addEventListener("click", () => {
+    if (!isOptionalMode()) return;
+    logEvent("gate_skipped_optional", {
+      turnsCompleted: state.gateUnitIndex,
+      totalUnits: state.gateUnits.length,
+      totalAttempts: state.explainAttempts,
+      timeSpentMs: state.explainGateLockTime
+        ? Date.now() - state.explainGateLockTime
+        : null,
+      exitedAt: new Date().toISOString(),
+    });
+    state.explainPassed = true;
+    state.explainLocked = false;
+    applyExplainLock();
+    judge("submit");
+  });
 
   // Click outside tweaks to close
   document.addEventListener("click", (e) => {
@@ -2271,14 +2297,21 @@ function boot() {
 
   setupVdividerDrag();
 
-  // Load allowed user list, then handle login
-  fetch("./data/allowed_users.json")
-    .then((r) => r.json())
-    .then((list) => {
+  // Load allowed user list and phase2 mode assignments in parallel, then handle login
+  Promise.all([
+    fetch("./data/allowed_users.json")
+      .then((r) => r.json())
+      .catch(() => []),
+    fetch("./data/phase2_modes.json")
+      .then((r) => r.json())
+      .catch(() => ({})),
+  ])
+    .then(([list, modes]) => {
       allowedUsers = Array.isArray(list) ? list : [];
-    })
-    .catch(() => {
-      allowedUsers = [];
+      phase2Modes =
+        modes && typeof modes === "object" && !Array.isArray(modes)
+          ? modes
+          : {};
     })
     .finally(() => {
       if (runArgs.userIdParam) {
@@ -2286,7 +2319,10 @@ function boot() {
         if (!isAllowedUser(baseId)) {
           showLogin("허용되지 않은 사용자 ID입니다.");
         } else {
-          if (isExp) runArgs.mode = "phase2";
+          if (isExp) {
+            runArgs.mode = "phase2";
+            state.phase2Mode = phase2Modes[baseId] || "mandatory";
+          }
           beginSession(baseId);
         }
       } else {
