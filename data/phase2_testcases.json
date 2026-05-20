@@ -1,95 +1,246 @@
 {
-  "207": {
+  "201": {
     "visible": [
       {
-        "input": [["pay", "attention", "practice", "attend"], "at"],
-        "expected": 2
+        "input": [
+          [
+            [0, 0, 1],
+            [0, 0, 1],
+            [0, 0, 0]
+          ],
+          [0, 0],
+          [2, 2]
+        ],
+        "expected": 4
       },
       {
-        "input": [["leetcode", "win", "loops", "success"], "code"],
+        "input": [
+          [
+            [0, 1],
+            [1, 0]
+          ],
+          [0, 0],
+          [1, 1]
+        ],
+        "expected": -1
+      },
+      {
+        "input": [
+          [
+            [0, 0],
+            [0, 0]
+          ],
+          [0, 0],
+          [0, 0]
+        ],
         "expected": 0
       }
     ],
     "hidden": [
       {
-        "input": [["apple", "app", "apricot", "application", "banana"], "app"],
-        "expected": 3
+        "input": [
+          [
+            [0, 1, 0],
+            [0, 1, 0],
+            [0, 0, 0]
+          ],
+          [0, 0],
+          [0, 2]
+        ],
+        "expected": 6
       },
       {
-        "input": [["hello", "help", "he", "h"], "he"],
-        "expected": 3
+        "input": [
+          [
+            [0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0]
+          ],
+          [0, 0],
+          [4, 4]
+        ],
+        "expected": 16
       },
       {
-        "input": [["a", "aa", "aaa", "aaaa"], "aa"],
-        "expected": 3
-      },
-      {
-        "input": [["prefix", "pre", "prelude", "post"], "pre"],
-        "expected": 3
-      },
-      {
-        "input": [["x", "y", "z"], "a"],
+        "input": [[[0]], [0, 0], [0, 0]],
         "expected": 0
       },
       {
-        "input": [["same", "same", "same"], "same"],
-        "expected": 3
+        "input": [
+          [
+            [0, 0, 0],
+            [1, 1, 0],
+            [0, 0, 0]
+          ],
+          [0, 0],
+          [2, 0]
+        ],
+        "expected": 4
       }
     ]
   },
-  "219": {
+  "202": {
     "visible": [
       {
-        "stdin": "1\n홍길동\n85\n2\n4\n",
-        "expected_output": "홍길동 학생이 추가되었습니다.\n이름 | 점수\n홍길동 | 85\n프로그램을 종료합니다."
+        "input": [
+          [
+            [0, 0, 1],
+            [0, 0, 1],
+            [0, 0, 0]
+          ],
+          [0, 0],
+          [2, 2]
+        ],
+        "expected": true
+      },
+      {
+        "input": [
+          [
+            [0, 1],
+            [1, 0]
+          ],
+          [0, 0],
+          [1, 1]
+        ],
+        "expected": false
+      },
+      {
+        "input": [[[0]], [0, 0], [0, 0]],
+        "expected": true
       }
     ],
     "hidden": [
       {
-        "stdin": "1\n김철수\n72\n1\n이영희\n91\n2\n4\n",
-        "expected_output": "김철수 학생이 추가되었습니다.\n이영희 학생이 추가되었습니다.\n이름 | 점수\n김철수 | 72\n이영희 | 91\n프로그램을 종료합니다."
+        "input": [
+          [
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0]
+          ],
+          [0, 0],
+          [2, 2]
+        ],
+        "expected": true
       },
       {
-        "stdin": "3\n없는학생\n4\n",
-        "expected_output": "해당 학생을 찾을 수 없습니다.\n프로그램을 종료합니다."
+        "input": [
+          [
+            [0, 1, 0],
+            [1, 1, 1],
+            [0, 1, 0]
+          ],
+          [0, 0],
+          [2, 2]
+        ],
+        "expected": false
+      },
+      {
+        "input": [
+          [
+            [0, 0, 0, 0],
+            [1, 1, 1, 0],
+            [0, 0, 0, 0]
+          ],
+          [0, 0],
+          [2, 0]
+        ],
+        "expected": true
+      },
+      {
+        "input": [
+          [
+            [0, 1, 0],
+            [0, 0, 0],
+            [0, 1, 0]
+          ],
+          [0, 0],
+          [0, 2]
+        ],
+        "expected": true
       }
     ]
   },
-  "206": {
+  "203": {
     "visible": [
       {
-        "input": [["flower", "flow", "flight"]],
-        "expected": "fl"
+        "input": [
+          [
+            [0, 0, 1],
+            [0, 0, 1],
+            [0, 0, 0]
+          ],
+          [0, 0],
+          [2, 2]
+        ],
+        "expected": 4
       },
       {
-        "input": [["dog", "racecar", "car"]],
-        "expected": ""
+        "input": [
+          [
+            [0, 1],
+            [1, 0]
+          ],
+          [0, 0],
+          [1, 1]
+        ],
+        "expected": -1
+      },
+      {
+        "input": [
+          [
+            [0, 0],
+            [0, 0]
+          ],
+          [0, 0],
+          [0, 0]
+        ],
+        "expected": 0
       }
     ],
     "hidden": [
       {
-        "input": [["interspecies", "interstellar", "interstate"]],
-        "expected": "inters"
+        "input": [
+          [
+            [0, 1, 0],
+            [0, 1, 0],
+            [0, 0, 0]
+          ],
+          [0, 0],
+          [0, 2]
+        ],
+        "expected": 6
       },
       {
-        "input": [["a"]],
-        "expected": "a"
+        "input": [
+          [
+            [0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0]
+          ],
+          [0, 0],
+          [4, 4]
+        ],
+        "expected": 16
       },
       {
-        "input": [["abc", "abc", "abc"]],
-        "expected": "abc"
+        "input": [[[0]], [0, 0], [0, 0]],
+        "expected": 0
       },
       {
-        "input": [["abab", "aba", "abc"]],
-        "expected": "ab"
-      },
-      {
-        "input": [["", "abc"]],
-        "expected": ""
-      },
-      {
-        "input": [["cir", "car"]],
-        "expected": "c"
+        "input": [
+          [
+            [0, 0, 0],
+            [1, 1, 0],
+            [0, 0, 0]
+          ],
+          [0, 0],
+          [2, 0]
+        ],
+        "expected": 4
       }
     ]
   }

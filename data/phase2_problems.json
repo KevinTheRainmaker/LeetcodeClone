@@ -1,115 +1,98 @@
 [
   {
-    "id": 1,
-    "slug": "joystick",
-    "title": "조이스틱",
+    "id": 201,
+    "slug": "maze-bfs",
+    "title": "미로 탈출 - BFS",
     "difficulty": "medium",
-    "category": "greedy",
-    "functionName": "joystick",
-    "description": "조이스틱으로 알파벳 이름을 완성하세요. 맨 처음엔 A로만 이루어져 있습니다.\nex) 완성해야 하는 이름이 세 글자면 AAA, 네 글자면 AAAA\n\n조이스틱을 각 방향으로 움직이면 아래와 같습니다.\n```▲ - 다음 알파벳\n▼ - 이전 알파벳 (A에서 아래쪽으로 이동하면 Z로)\n◀ - 커서를 왼쪽으로 이동 (첫 번째 위치에서 왼쪽으로 이동하면 마지막 문자에 커서)\n▶ - 커서를 오른쪽으로 이동 (마지막 위치에서 오른쪽으로 이동하면 첫 번째 문자에 커서)\n```\n예를 들어 아래의 방법으로 'JAZ'를 만들 수 있습니다.\n```- 첫 번째 위치에서 조이스틱을 위로 9번 조작하여 J를 완성합니다.\n- 조이스틱을 왼쪽으로 1번 조작하여 커서를 마지막 문자 위치로 이동시킵니다.\n- 마지막 위치에서 조이스틱을 아래로 1번 조작하여 Z를 완성합니다.\n따라서 11번 이동시켜 'JAZ'를 만들 수 있고, 이때가 최소 이동입니다.```\n만들고자 하는 이름 name이 매개변수로 주어질 때, 이름에 대해 조이스틱 조작 횟수의 최솟값을 return 하도록 solution 함수를 만드세요.\n\n제한 사항\n- name은 알파벳 대문자로만 이루어져 있습니다.\n- name의 길이는 1 이상 20 이하입니다.",
+    "category": "bfs",
+    "functionName": "solve_bfs",
+    "pythonFunctionName": "solve_bfs",
+    "type": "coding",
+    "description": "2D 격자로 표현된 미로에서 **BFS(너비 우선 탐색)**를 사용하여 시작점부터 도착점까지의 최단 경로 길이를 구하세요.\n\n미로 규칙:\n- `0`: 이동 가능한 칸\n- `1`: 벽 (이동 불가)\n- 상하좌우 4방향으로만 이동 가능\n- 경로가 없으면 `-1`을 반환\n- 시작점 == 도착점이면 `0`을 반환\n\n제한 사항:\n- 미로 크기: 1 × 1 이상, 50 × 50 이하\n- start, end는 항상 이동 가능한 칸(0)에 위치",
     "examples": [
       {
-        "input": "name = \"JERON\"",
-        "output": "56"
+        "input": "maze = [[0,0,1],[0,0,1],[0,0,0]], start = [0,0], end = [2,2]",
+        "output": "4"
       },
       {
-        "input": "name = \"JAN\"",
-        "output": "23"
+        "input": "maze = [[0,1],[1,0]], start = [0,0], end = [1,1]",
+        "output": "-1"
       }
     ],
     "starter": {
-      "python": "def joystick(name):\n    # TODO\n    pass\n",
-      "java": "static int oystick(String name) {\n    // TODO\n    return 0;\n}\n",
-      "cpp": "int joystick(string name) {\n    // TODO\n    return 0;\n}\n"
-    },
-    "type": "coding"
+      "python": "from collections import deque\n\ndef solve_bfs(maze, start, end):\n    # BFS를 사용하여 최단 경로 길이를 반환하세요\n    # 경로가 없으면 -1을 반환합니다\n    pass\n",
+      "java": "static int solve_bfs(int[][] maze, int[] start, int[] end) {\n    // BFS를 사용하여 최단 경로 길이를 반환하세요\n    // 경로가 없으면 -1을 반환합니다\n    return -1;\n}\n",
+      "cpp": "int solve_bfs(vector<vector<int>>& maze, vector<int>& start, vector<int>& end) {\n    // BFS를 사용하여 최단 경로 길이를 반환하세요\n    // 경로가 없으면 -1을 반환합니다\n    return -1;\n}\n"
+    }
   },
   {
-    "id": 2,
-    "slug": "way-to-school",
-    "title": "등굣길",
+    "id": 202,
+    "slug": "maze-dfs",
+    "title": "미로 탐색 - DFS",
+    "difficulty": "medium",
+    "category": "dfs",
+    "functionName": "solve_dfs",
+    "pythonFunctionName": "solve_dfs",
+    "type": "coding",
+    "description": "2D 격자로 표현된 미로에서 **DFS(깊이 우선 탐색)**를 사용하여 시작점부터 도착점까지의 경로가 존재하는지 확인하세요.\n\n미로 규칙:\n- `0`: 이동 가능한 칸\n- `1`: 벽 (이동 불가)\n- 상하좌우 4방향으로만 이동 가능\n- 경로가 존재하면 `True`, 없으면 `False` 반환\n\n제한 사항:\n- 미로 크기: 1 × 1 이상, 50 × 50 이하\n- start, end는 항상 이동 가능한 칸(0)에 위치",
+    "examples": [
+      {
+        "input": "maze = [[0,0,1],[0,0,1],[0,0,0]], start = [0,0], end = [2,2]",
+        "output": "True"
+      },
+      {
+        "input": "maze = [[0,1],[1,0]], start = [0,0], end = [1,1]",
+        "output": "False"
+      }
+    ],
+    "starter": {
+      "python": "def solve_dfs(maze, start, end):\n    # DFS를 사용하여 경로 존재 여부를 반환하세요\n    pass\n",
+      "java": "static boolean solve_dfs(int[][] maze, int[] start, int[] end) {\n    // DFS를 사용하여 경로 존재 여부를 반환하세요\n    return false;\n}\n",
+      "cpp": "bool solve_dfs(vector<vector<int>>& maze, vector<int>& start, vector<int>& end) {\n    // DFS를 사용하여 경로 존재 여부를 반환하세요\n    return false;\n}\n"
+    }
+  },
+  {
+    "id": 203,
+    "slug": "maze-astar",
+    "title": "미로 최적 탐색 - A*",
     "difficulty": "hard",
-    "category": "dynamic-programming",
-    "functionName": "num_ways",
-    "description": "계속되는 폭우로 일부 지역이 물에 잠겼습니다. 물에 잠기지 않은 지역을 통해 학교를 가려고 합니다. 집에서 학교까지 가는 길은 m x n 크기의 격자모양으로 나타낼 수 있습니다.\n아래 그림은 m = 4, n = 3 인 경우입니다.\n[이미지1]\n\n가장 왼쪽 위, 즉 집이 있는 곳의 좌표는 (1, 1)로 나타내고 가장 오른쪽 아래, 즉 학교가 있는 곳의 좌표는 (m, n)으로 나타냅니다.\n격자의 크기 m, n과 물이 잠긴 지역의 좌표를 담은 2차원 배열 puddles이 매개변수로 주어집니다. 오른쪽과 아래쪽으로만 움직여 집에서 학교까지 갈 수 있는 최단경로의 개수를 1,000,000,007로 나눈 나머지를 return 하도록 solution 함수를 작성해주세요.\n\n제한 사항\n- 격자의 크기 m, n은 1 이상 100 이하인 자연수입니다.\n- m과 n이 모두 1인 경우는 입력으로 주어지지 않습니다.\n- 물에 잠긴 지역은 0개 이상 10개 이하입니다.\n- 집과 학교가 물에 잠긴 경우는 입력으로 주어지지 않습니다.",
+    "category": "astar",
+    "functionName": "solve_astar",
+    "pythonFunctionName": "solve_astar",
+    "type": "coding",
+    "description": "2D 격자로 표현된 미로에서 **A\\* 알고리즘**을 사용하여 시작점부터 도착점까지의 최단 경로 길이를 구하세요.\n\n**휴리스틱**: 맨해튼 거리 `h(n) = |n.row - end.row| + |n.col - end.col|`\n\n미로 규칙:\n- `0`: 이동 가능한 칸\n- `1`: 벽 (이동 불가)\n- 상하좌우 4방향으로만 이동 가능\n- 경로가 없으면 `-1`을 반환\n- 시작점 == 도착점이면 `0`을 반환\n\n제한 사항:\n- 미로 크기: 1 × 1 이상, 50 × 50 이하\n- start, end는 항상 이동 가능한 칸(0)에 위치",
     "examples": [
       {
-        "input": "m = 4, n = 3, puddles = [[2, 2]]",
-        "output": "4",
-        "explanation": "[이미지2]"
-      }
-    ],
-    "images": [
-      {
-        "src": "data/images/p7_1.png",
-        "width": "30%"
+        "input": "maze = [[0,0,1],[0,0,1],[0,0,0]], start = [0,0], end = [2,2]",
+        "output": "4"
       },
       {
-        "src": "data/images/p7_2.png",
-        "width": "30%"
+        "input": "maze = [[0,1],[1,0]], start = [0,0], end = [1,1]",
+        "output": "-1"
       }
     ],
     "starter": {
-      "python": "def num_ways(m, n, puddles):\n    # TODO\n    pass\n",
-      "java": "static int num_ways(int m, int n, int[][] puddles) {\n    // TODO\n    return 0;\n}\n",
-      "cpp": "int num_ways(int m, int n, vector<vector<int>>& puddles) {\n    // TODO\n    return 0;\n}\n"
-    },
-    "type": "coding"
-  },
-  {
-    "id": 3,
-    "type": "creative-problem",
-    "slug": "make-your-own-problem",
-    "title": "나만의 코딩 문제 만들기",
-    "difficulty": "creative",
-    "category": "creative",
-    "description": "앞서 풀었던 문제에서 사용한 알고리즘/자료구조 개념을 활용하여, 직접 코딩 테스트 문제를 설계하고 풀어보세요.\n\n[작성 가이드]\n- 어떤 상황/배경에서 이 개념이 필요한지 설명하세요\n- 함수 시그니처(입력/출력)를 명시하세요\n- 예시 입출력을 최소 1개 작성하세요\n- 제한 조건을 추가하면 더 좋습니다",
-    "placeholder": "여기에 문제 설명을 작성하세요...\n\n예시 형식:\n[문제]\n...\n\n[입력]\n...\n\n[출력]\n...\n\n[예시]\n입력: ...\n출력: ...",
-    "images": [],
-    "examples": [],
-    "starter": {
-      "python": "# 위에서 직접 설계한 문제를 풀어보세요\ndef solution():\n    # TODO\n    pass\n",
-      "java": "// 위에서 직접 설계한 문제를 풀어보세요\nstatic Object solution() {\n    // TODO\n    return null;\n}\n",
-      "cpp": "// 위에서 직접 설계한 문제를 풀어보세요\nauto solution() {\n    // TODO\n}\n"
+      "python": "import heapq\n\ndef solve_astar(maze, start, end):\n    # A* 알고리즘(맨해튼 거리 휴리스틱)으로 최단 경로 길이를 반환하세요\n    # 경로가 없으면 -1을 반환합니다\n    pass\n",
+      "java": "static int solve_astar(int[][] maze, int[] start, int[] end) {\n    // A* 알고리즘(맨해튼 거리 휴리스틱)으로 최단 경로 길이를 반환하세요\n    // 경로가 없으면 -1을 반환합니다\n    return -1;\n}\n",
+      "cpp": "int solve_astar(vector<vector<int>>& maze, vector<int>& start, vector<int>& end) {\n    // A* 알고리즘(맨해튼 거리 휴리스틱)으로 최단 경로 길이를 반환하세요\n    // 경로가 없으면 -1을 반환합니다\n    return -1;\n}\n"
     }
   },
   {
-    "id": 4,
-    "type": "cli-given",
-    "slug": "student-grade-manager",
-    "title": "학생 성적 관리 시스템",
+    "id": 204,
+    "slug": "transfer-task",
+    "title": "전이 문제",
     "difficulty": "medium",
-    "category": "cli",
-    "description": "아래 명세에 따라 텍스트 입출력 기반 학생 성적 관리 프로그램을 작성하세요.\n\n[명세]\n프로그램 시작 시 다음 메뉴를 반복 출력합니다:\n```\n=== 성적 관리 시스템 ===\n1. 학생 추가\n2. 전체 조회\n3. 성적 검색\n4. 종료\n선택: \n```\n\n**1. 학생 추가**\n- `이름:` 프롬프트로 이름 입력\n- `점수:` 프롬프트로 점수(0~100 정수) 입력\n- `[이름] 학생이 추가되었습니다.` 출력\n\n**2. 전체 조회**\n- `이름 | 점수` 헤더 출력 후 등록된 학생 목록 출력\n- 학생이 없으면 `등록된 학생이 없습니다.` 출력\n\n**3. 성적 검색**\n- `이름:` 프롬프트로 이름 입력\n- 해당 학생의 점수 출력. 없으면 `해당 학생을 찾을 수 없습니다.` 출력\n\n**4. 종료**\n- `프로그램을 종료합니다.` 출력 후 종료",
-    "images": [],
-    "examples": [
-      {
-        "input": "1 → 홍길동 → 85 → 2 → 4 순서로 입력",
-        "output": "홍길동 학생이 추가되었습니다. / 이름 | 점수 / 홍길동 | 85",
-        "explanation": "학생을 추가한 뒤 전체 조회하면 추가된 학생이 보입니다."
-      }
-    ],
-    "starter": {
-      "python": "# 학생 성적 관리 시스템을 구현하세요\ndef main():\n    students = {}\n    while True:\n        print('=== 성적 관리 시스템 ===')\n        print('1. 학생 추가')\n        print('2. 전체 조회')\n        print('3. 성적 검색')\n        print('4. 종료')\n        choice = input('선택: ').strip()\n        # TODO\n\nif __name__ == '__main__':\n    main()\n",
-      "java": "import java.util.Scanner;\nimport java.util.LinkedHashMap;\nimport java.util.Map;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        Map<String, Integer> students = new LinkedHashMap<>();\n        while (true) {\n            System.out.println(\"=== 성적 관리 시스템 ===\");\n            System.out.println(\"1. 학생 추가\");\n            System.out.println(\"2. 전체 조회\");\n            System.out.println(\"3. 성적 검색\");\n            System.out.println(\"4. 종료\");\n            System.out.print(\"선택: \");\n            String choice = sc.nextLine().trim();\n            // TODO\n        }\n    }\n}\n",
-      "cpp": "#include <iostream>\n#include <map>\n#include <string>\nusing namespace std;\n\nint main() {\n    map<string, int> students;\n    while (true) {\n        cout << \"=== 성적 관리 시스템 ===\" << endl;\n        cout << \"1. 학생 추가\" << endl;\n        cout << \"2. 전체 조회\" << endl;\n        cout << \"3. 성적 검색\" << endl;\n        cout << \"4. 종료\" << endl;\n        cout << \"선택: \";\n        string choice;\n        getline(cin, choice);\n        // TODO\n    }\n    return 0;\n}\n"
-    }
-  },
-  {
-    "id": 5,
-    "type": "creative-cli",
-    "slug": "design-your-cli",
-    "title": "나만의 CLI 프로그램 설계",
-    "difficulty": "creative",
-    "category": "creative",
-    "description": "이번에는 여러분이 직접 기획자가 되어보세요.\n실제로 존재할 법한 서비스나 시스템을 하나 선택해서, 그 시스템의 핵심 기능을 구현해보세요.\n\n[조건]\n- 텍스트 입출력 기반으로 동작할 것\n- 데이터를 저장하고 조회하는 기능이 있을 것\n- 사용자가 선택할 수 있는 메뉴가 있을 것\n- 최소 3가지 이상의 핵심 기능을 포함할 것\n\n[제출물]\n- 기획한 시스템의 간단한 설명 (2~3문장)\n- 구현한 프로그램 코드",
-    "placeholder": "여기에 시스템 명세를 작성하세요...\n\n예시 형식:\n[시스템 설명]\n...\n\n[핵심 기능]\n1. ...\n2. ...\n3. ...\n\n[메뉴 구조]\n...",
+    "category": "transfer",
+    "type": "creative-problem",
+    "transfer": true,
+    "description": "(준비 중)",
+    "placeholder": "여기에 풀이를 작성하세요...",
     "images": [],
     "examples": [],
     "starter": {
-      "python": "# 직접 설계한 CLI 프로그램을 구현하세요\ndef main():\n    while True:\n        # 메뉴 출력\n        # 입력 처리\n        pass\n\nif __name__ == '__main__':\n    main()\n",
-      "java": "import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        while (true) {\n            // 메뉴 출력 및 입력 처리\n        }\n    }\n}\n",
-      "cpp": "#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    while (true) {\n        // 메뉴 출력 및 입력 처리\n    }\n    return 0;\n}\n"
+      "python": "# TODO\npass\n",
+      "java": "// TODO\n",
+      "cpp": "// TODO\n"
     }
   }
 ]

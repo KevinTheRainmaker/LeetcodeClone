@@ -5,7 +5,7 @@
       "name": "기본 세트",
       "description": "코딩 테스트 2문제 + 창작 문제 + CLI 제작 + 창작 CLI",
       "problemIds": [6, 7, 18, 19, 20],
-      "phase2ProblemIds": [206, 207, 218, 219, 220]
+      "phase2ProblemIds": [201, 202, 203, 204]
     }
   ]
 }

@@ -3,6 +3,7 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
+import Langfuse from "langfuse";
 
 export const config = { maxDuration: 30 };
 
@@ -33,6 +34,34 @@ function getAllowedOrigins() {
   ]);
 }
 
+function makeLangfuse() {
+  const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
+  const secretKey = process.env.LANGFUSE_SECRET_KEY;
+  if (!publicKey || !secretKey) return null;
+  return new Langfuse({
+    publicKey,
+    secretKey,
+    baseUrl: process.env.LANGFUSE_HOST || "https://cloud.langfuse.com",
+    flushAt: 1,
+    flushInterval: 0,
+  });
+}
+
+// Strip base64 image data from messages before logging (keeps storage lean)
+function sanitizeForLogging(messages) {
+  return messages.map((msg) => {
+    if (!Array.isArray(msg.content)) return msg;
+    return {
+      ...msg,
+      content: msg.content.map((block) =>
+        block.type === "image_url"
+          ? { type: "image_url", image_url: { url: "[image omitted]" } }
+          : block,
+      ),
+    };
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -40,8 +69,6 @@ export default async function handler(req, res) {
   }
 
   // Origin gate — only blocks requests with a known-bad Origin header.
-  // Same-origin browser requests omit Origin entirely → allowed (user_id gate covers abuse).
-  // localhost origins are always allowed for local dev (vercel dev injects these).
   const origin = req.headers.origin;
   const isLocalhost =
     !!origin &&
@@ -88,6 +115,29 @@ export default async function handler(req, res) {
       ? String(req.headers.origin)
       : "https://leetcodeclone.vercel.app");
 
+  // Langfuse tracing setup
+  const langfuse = makeLangfuse();
+  let generation = null;
+  const startTime = new Date();
+
+  if (langfuse) {
+    try {
+      const trace = langfuse.trace({
+        name: "chat",
+        userId: rawUserId,
+        metadata: { model, temperature, maxTokens },
+      });
+      generation = trace.generation({
+        name: "openrouter",
+        model,
+        input: sanitizeForLogging(messages),
+        startTime,
+      });
+    } catch {
+      // Langfuse setup failure must never break chat
+    }
+  }
+
   try {
     const upstream = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -111,6 +161,16 @@ export default async function handler(req, res) {
 
     if (!upstream.ok) {
       const errText = await upstream.text();
+      if (generation) {
+        try {
+          generation.end({
+            output: errText,
+            level: "ERROR",
+            endTime: new Date(),
+          });
+          await langfuse.flushAsync();
+        } catch {}
+      }
       return res
         .status(upstream.status)
         .setHeader("Content-Type", "application/json")
@@ -123,14 +183,51 @@ export default async function handler(req, res) {
 
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder();
+    let fullResponse = "";
+    let sseBuffer = "";
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      res.write(decoder.decode(value, { stream: true }));
+      const chunk = decoder.decode(value, { stream: true });
+      res.write(chunk);
+
+      // Parse SSE to accumulate full response text for Langfuse
+      sseBuffer += chunk;
+      const lines = sseBuffer.split("\n");
+      sseBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") continue;
+        try {
+          const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content;
+          if (delta) fullResponse += delta;
+        } catch {
+          // partial JSON — skip
+        }
+      }
     }
     res.end();
+
+    // Log completed generation to Langfuse
+    if (generation) {
+      try {
+        generation.end({ output: fullResponse, endTime: new Date() });
+        await langfuse.flushAsync();
+      } catch {}
+    }
   } catch (err) {
+    if (generation) {
+      try {
+        generation.end({
+          output: String(err?.message || err),
+          level: "ERROR",
+          endTime: new Date(),
+        });
+        await langfuse.flushAsync();
+      } catch {}
+    }
     if (!res.headersSent) {
       return res.status(502).json({
         error: "Upstream request failed",

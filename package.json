@@ -1,0 +1,9 @@
+{
+  "name": "leetcodeclone",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "langfuse": "^3.0.0"
+  }
+}
