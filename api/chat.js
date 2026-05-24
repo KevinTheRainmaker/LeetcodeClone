@@ -24,14 +24,27 @@ function getAllowedUsers() {
   return _allowedUsers;
 }
 
-function getAllowedOrigins() {
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (
+    origin.startsWith("http://localhost") ||
+    origin.startsWith("http://127.0.0.1")
+  )
+    return true;
+
   const env = process.env.ALLOWED_ORIGINS;
-  if (env) return new Set(env.split(",").map((s) => s.trim()));
-  return new Set([
-    "https://chi-27-step1-gqess6nbb-kevintherainmakers-projects.vercel.app",
-    "http://localhost:8080",
-    "http://localhost:3000",
-  ]);
+  if (env)
+    return env
+      .split(",")
+      .map((s) => s.trim())
+      .includes(origin);
+
+  // Allow any Vercel preview/production deployment for this project account
+  if (origin.endsWith("-kevintherainmakers-projects.vercel.app")) return true;
+  if (origin === "https://leetcodeclone.vercel.app") return true;
+  if (origin === "https://chi27.kangbeen.my") return true;
+
+  return false;
 }
 
 function makeLangfuse() {
@@ -70,11 +83,7 @@ export default async function handler(req, res) {
 
   // Origin gate — only blocks requests with a known-bad Origin header.
   const origin = req.headers.origin;
-  const isLocalhost =
-    !!origin &&
-    (origin.startsWith("http://localhost") ||
-      origin.startsWith("http://127.0.0.1"));
-  if (origin && !isLocalhost && !getAllowedOrigins().has(origin)) {
+  if (!isAllowedOrigin(origin)) {
     return res.status(403).json({ error: "Forbidden: origin not allowed" });
   }
 
@@ -125,14 +134,17 @@ export default async function handler(req, res) {
       const trace = langfuse.trace({
         name: "chat",
         userId: rawUserId,
+        timestamp: startTime,
         metadata: { model, temperature, maxTokens },
       });
       generation = trace.generation({
         name: "openrouter",
         model,
-        input: sanitizeForLogging(messages),
+        modelParameters: { temperature, maxTokens },
         startTime,
       });
+      // update() is required for input to actually persist in Langfuse v3
+      generation.update({ input: sanitizeForLogging(messages) });
     } catch {
       // Langfuse setup failure must never break chat
     }
@@ -163,11 +175,8 @@ export default async function handler(req, res) {
       const errText = await upstream.text();
       if (generation) {
         try {
-          generation.end({
-            output: errText,
-            level: "ERROR",
-            endTime: new Date(),
-          });
+          generation.update({ output: errText });
+          generation.end({ level: "ERROR", endTime: new Date() });
           await langfuse.flushAsync();
         } catch {}
       }
@@ -213,18 +222,16 @@ export default async function handler(req, res) {
     // Log completed generation to Langfuse
     if (generation) {
       try {
-        generation.end({ output: fullResponse, endTime: new Date() });
+        generation.update({ output: fullResponse || null });
+        generation.end({ endTime: new Date() });
         await langfuse.flushAsync();
       } catch {}
     }
   } catch (err) {
     if (generation) {
       try {
-        generation.end({
-          output: String(err?.message || err),
-          level: "ERROR",
-          endTime: new Date(),
-        });
+        generation.update({ output: String(err?.message || err) });
+        generation.end({ level: "ERROR", endTime: new Date() });
         await langfuse.flushAsync();
       } catch {}
     }
