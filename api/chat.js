@@ -60,19 +60,20 @@ function makeLangfuse() {
   });
 }
 
-// Strip base64 image data from messages before logging (keeps storage lean)
-function sanitizeForLogging(messages) {
-  return messages.map((msg) => {
-    if (!Array.isArray(msg.content)) return msg;
-    return {
-      ...msg,
-      content: msg.content.map((block) =>
-        block.type === "image_url"
-          ? { type: "image_url", image_url: { url: "[image omitted]" } }
-          : block,
-      ),
-    };
-  });
+// Extract the last user message as plain text (truncated) for Langfuse logging.
+// Using the full messages array risks hitting payload size limits and being silently dropped.
+function extractLastUserText(messages, maxLen = 2000) {
+  const msg = [...messages].reverse().find((m) => m.role === "user");
+  if (!msg) return null;
+  if (typeof msg.content === "string") return msg.content.slice(0, maxLen);
+  if (Array.isArray(msg.content)) {
+    return msg.content
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .slice(0, maxLen);
+  }
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -127,24 +128,26 @@ export default async function handler(req, res) {
   // Langfuse tracing setup
   const langfuse = makeLangfuse();
   let generation = null;
+  let lfTrace = null;
   const startTime = new Date();
 
   if (langfuse) {
     try {
-      const trace = langfuse.trace({
+      const logInput = extractLastUserText(messages);
+      lfTrace = langfuse.trace({
         name: "chat",
         userId: rawUserId,
         timestamp: startTime,
+        input: logInput,
         metadata: { model, temperature, maxTokens },
       });
-      generation = trace.generation({
+      generation = lfTrace.generation({
         name: "openrouter",
         model,
         modelParameters: { temperature, maxTokens },
+        input: logInput,
         startTime,
       });
-      // update() is required for input to actually persist in Langfuse v3
-      generation.update({ input: sanitizeForLogging(messages) });
     } catch {
       // Langfuse setup failure must never break chat
     }
@@ -175,8 +178,12 @@ export default async function handler(req, res) {
       const errText = await upstream.text();
       if (generation) {
         try {
-          generation.update({ output: errText });
-          generation.end({ level: "ERROR", endTime: new Date() });
+          generation.end({
+            output: errText,
+            level: "ERROR",
+            endTime: new Date(),
+          });
+          if (lfTrace) lfTrace.update({ output: errText });
           await langfuse.flushAsync();
         } catch {}
       }
@@ -222,16 +229,18 @@ export default async function handler(req, res) {
     // Log completed generation to Langfuse
     if (generation) {
       try {
-        generation.update({ output: fullResponse || null });
-        generation.end({ endTime: new Date() });
+        const logOutput = fullResponse.slice(0, 2000) || null;
+        generation.end({ output: fullResponse || null, endTime: new Date() });
+        if (lfTrace) lfTrace.update({ output: logOutput });
         await langfuse.flushAsync();
       } catch {}
     }
   } catch (err) {
     if (generation) {
       try {
-        generation.update({ output: String(err?.message || err) });
-        generation.end({ level: "ERROR", endTime: new Date() });
+        const errStr = String(err?.message || err);
+        generation.end({ output: errStr, level: "ERROR", endTime: new Date() });
+        if (lfTrace) lfTrace.update({ output: errStr });
         await langfuse.flushAsync();
       } catch {}
     }
