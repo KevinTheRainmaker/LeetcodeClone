@@ -269,14 +269,17 @@ async function loadData() {
   state.testcases = t;
   state.sets = s.sets || [];
 
-  // Build queue: ?set=X filters to that set's IDs; otherwise all problems.json entries
+  // Build queue: ?set=X filters to that set's IDs; otherwise fallback by mode.
+  // phase2_problems.json entries (p2) must NEVER appear outside phase2 mode.
+  const isPhase2 = runArgs.mode === "phase2";
+  const phase2Ids = new Set(p2.map((x) => x.id));
+
   let pool = [];
   if (runArgs.setId) {
     const match = state.sets.find(
       (x) => Number(x.setId) === Number(runArgs.setId),
     );
     if (match) {
-      const isPhase2 = runArgs.mode === "phase2";
       const ids =
         isPhase2 && match.phase2ProblemIds
           ? match.phase2ProblemIds
@@ -285,7 +288,12 @@ async function loadData() {
       pool = state.problems.filter((x) => setIds.has(x.id)).map((x) => x.id);
     }
   }
-  if (!pool.length) pool = state.problems.map((x) => x.id);
+  if (!pool.length) {
+    // Fallback (no set param): phase2 problems only appear in phase2 mode
+    pool = state.problems
+      .filter((x) => (phase2Ids.has(x.id) ? isPhase2 : !isPhase2))
+      .map((x) => x.id);
+  }
   state.queue = pool;
 
   // Resume progress
