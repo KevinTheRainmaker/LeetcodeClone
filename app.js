@@ -1007,10 +1007,35 @@ function termPush(html) {
 }
 
 // ────────────── Judge (real backend) ──────────────
-async function judge(mode) {
+function showCreativeStdin() {
+  const wrap = document.getElementById("stdinWrap");
+  const input = document.getElementById("stdinInput");
+  const btn = document.getElementById("stdinRunBtn");
+  wrap.style.display = "flex";
+  input.value = "";
+  input.focus();
+
+  const confirm = () => {
+    const stdin = input.value;
+    wrap.style.display = "none";
+    judge("run", stdin);
+  };
+  btn.onclick = confirm;
+  input.onkeydown = (e) => {
+    if (e.ctrlKey && e.key === "Enter") confirm();
+  };
+}
+
+async function judge(mode, stdin = null) {
   const p = currentProblem();
   if (!p) return;
   saveCode();
+
+  // creative-problem RUN: stdin 입력 프롬프트 먼저 표시
+  if (p.type === "creative-problem" && mode === "run" && stdin === null) {
+    showCreativeStdin();
+    return;
+  }
 
   // creative 유형: 자동채점 없이 저장 후 Next 활성화 (gate보다 먼저 체크)
   if (isCreativeType(p) && mode === "submit") {
@@ -1088,6 +1113,7 @@ async function judge(mode) {
     mode,
     userId: baseId,
   };
+  if (stdin !== null) body.stdin = stdin;
   console.log("[judge request body]", body);
   termPush(
     `<span class="term-muted">[debug] payload userId=${escapeHtml(String(body.userId || ""))}</span>`,
@@ -1116,6 +1142,27 @@ async function judge(mode) {
       );
       return;
     }
+    // creative-problem free-run: 테스트 없이 stdout 바로 출력
+    if (p.type === "creative-problem" && mode === "run") {
+      const ms = data.runtimeMs ?? 0;
+      const ok = data.status === "OK";
+      if (data.stdout) {
+        termPush(`<span class="term-muted">--- output (${ms} ms) ---</span>`);
+        data.stdout.split("\n").forEach((line) => {
+          termPush(`<span>${escapeHtml(line)}</span>`);
+        });
+      }
+      if (data.stderr) {
+        termPush(
+          `<span class="term-err">[stderr] ${escapeHtml(String(data.stderr).slice(0, 500))}</span>`,
+        );
+      }
+      termPush(
+        `<span class="${ok ? "term-ok" : "term-err"}">${escapeHtml(data.status)} · ${ms} ms</span>`,
+      );
+      return;
+    }
+
     const passed = data.passed ?? 0;
     const total = data.total ?? 0;
     termPush(

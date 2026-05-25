@@ -1028,6 +1028,58 @@ body {
   }
 }
 
+/* stdin prompt for creative-problem free-run */
+.stdin-wrap {
+  border-top: 1px solid var(--line-2);
+  background: var(--panel);
+  padding: 10px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stdin-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.stdin-hint {
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 8px;
+}
+.stdin-input {
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  resize: vertical;
+  outline: none;
+  line-height: 1.5;
+}
+.stdin-input:focus {
+  border-color: var(--accent);
+}
+.stdin-run-btn {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.stdin-run-btn:hover {
+  opacity: 0.85;
+}
+
 /* Actions row */
 .actions-row {
   border-top: 1px solid var(--line);

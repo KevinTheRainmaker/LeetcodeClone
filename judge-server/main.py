@@ -82,6 +82,7 @@ class JudgeRequest(BaseModel):
     code: str
     mode: str = "run"  # run | submit
     userId: str
+    stdin: Optional[str] = None  # creative-problem free-run only
 
 
 class ClientLogRequest(BaseModel):
@@ -590,6 +591,60 @@ def run_cli(language: str, code: str, cases: List[Dict[str, Any]], work: Path) -
         "caseResults": results, "stderr": "", "runtimeMs": elapsed,
     }
 
+
+def run_creative(language: str, code: str, stdin_text: str, work: Path) -> Dict[str, Any]:
+    """Execute creative-problem code with user-provided stdin. Returns raw stdout, no pass/fail."""
+    if language == "python":
+        script = work / "solution.py"
+        script.write_text(code, encoding="utf-8")
+        run_cmd = [PYTHON_CMD, str(script)]
+    elif language == "java":
+        src = work / "Main.java"
+        src.write_text(code, encoding="utf-8")
+        compile_proc = run_command(["javac", str(src)], cwd=work, timeout=15.0)
+        if compile_proc.returncode != 0:
+            return {
+                "status": "Compile Error", "passed": 0, "total": 0, "caseResults": [],
+                "stdout": "", "stderr": truncate_output(compile_proc.stderr or ""), "runtimeMs": 0,
+            }
+        run_cmd = ["java", "-cp", str(work), "Main"]
+    else:  # cpp
+        src = work / "main.cpp"
+        src.write_text(code, encoding="utf-8")
+        compile_proc = run_command(
+            ["g++", "-std=c++17", "-O2", "-o", str(work / "main"), str(src)], cwd=work, timeout=15.0
+        )
+        if compile_proc.returncode != 0:
+            return {
+                "status": "Compile Error", "passed": 0, "total": 0, "caseResults": [],
+                "stdout": "", "stderr": truncate_output(compile_proc.stderr or ""), "runtimeMs": 0,
+            }
+        run_cmd = [str(work / "main")]
+
+    start = time.perf_counter()
+    try:
+        proc = subprocess.run(
+            _wrap_isolated(run_cmd), cwd=str(work),
+            input=stdin_text, capture_output=True, text=True, timeout=TIME_LIMIT_SEC,
+            env=_HARDENED_ENV, preexec_fn=_hardened_preexec,
+        )
+        elapsed = int((time.perf_counter() - start) * 1000)
+        return {
+            "status": "OK" if proc.returncode == 0 else "Runtime Error",
+            "passed": 0, "total": 0, "caseResults": [],
+            "stdout": truncate_output(proc.stdout or ""),
+            "stderr": truncate_output(proc.stderr or ""),
+            "runtimeMs": elapsed,
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "Time Limit Exceeded",
+            "passed": 0, "total": 0, "caseResults": [],
+            "stdout": "", "stderr": "Time Limit Exceeded",
+            "runtimeMs": int(TIME_LIMIT_SEC * 1000),
+        }
+
+
 def load_allowed_users():
     path = DATA_DIR / "allowed_users.json"
     if not path.exists():
@@ -642,7 +697,15 @@ def judge(req: JudgeRequest):
     problem = get_problem(req.problemId)
     problem_type = problem.get("type") or "coding"
 
-    # creative/unknown 유형은 채점 없이 빈 성공 반환
+    # creative-problem RUN: execute with user-provided stdin, return raw stdout
+    if problem_type == "creative-problem" and req.mode == "run":
+        work = Path(tempfile.mkdtemp(prefix="judge_"))
+        try:
+            return run_creative(req.language, req.code, req.stdin or "", work)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
+    # creative/unknown 유형은 채점 없이 빈 성공 반환 (submit 포함)
     CODING_TYPES = {"coding", "cli-given"}
     if problem_type not in CODING_TYPES:
         return {"status": "Accepted", "passed": 0, "total": 0, "caseResults": [], "runtimeMs": 0}
