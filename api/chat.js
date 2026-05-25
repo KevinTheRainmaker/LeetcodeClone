@@ -224,9 +224,8 @@ export default async function handler(req, res) {
         }
       }
     }
-    res.end();
-
-    // Log completed generation to Langfuse
+    // Flush Langfuse BEFORE res.end() — Vercel reclaims the container immediately
+    // after the response ends, so any async work after res.end() is not guaranteed.
     if (generation) {
       try {
         const logOutput = fullResponse.slice(0, 2000) || null;
@@ -235,6 +234,8 @@ export default async function handler(req, res) {
         await langfuse.flushAsync();
       } catch {}
     }
+
+    res.end();
   } catch (err) {
     if (generation) {
       try {
