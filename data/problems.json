@@ -111,5 +111,110 @@
       "java": "import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        while (true) {\n            // 메뉴 출력 및 입력 처리\n        }\n    }\n}\n",
       "cpp": "#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    while (true) {\n        // 메뉴 출력 및 입력 처리\n    }\n    return 0;\n}\n"
     }
+  },
+  {
+    "id": 6,
+    "slug": "longest-common-prefix",
+    "title": "최장 공통 접두사",
+    "difficulty": "easy",
+    "category": "string",
+    "functionName": "longestCommonPrefix",
+    "pythonFunctionName": "longest_common_prefix",
+    "type": "coding",
+    "description": "문자열 배열 strs가 주어질 때, 모든 문자열의 최장 공통 접두사(Longest Common Prefix)를 찾아 반환하세요.\n공통 접두사가 없으면 빈 문자열 `\"\"`을 반환하세요.\n\n제한 사항\n- 1 ≤ strs.length ≤ 200\n- 0 ≤ strs[i].length ≤ 200\n- strs[i]는 영문 소문자로만 이루어져 있습니다",
+    "examples": [
+      {
+        "input": "strs = [\"flower\",\"flow\",\"flight\"]",
+        "output": "\"fl\""
+      },
+      { "input": "strs = [\"dog\",\"racecar\",\"car\"]", "output": "\"\"" }
+    ],
+    "starter": {
+      "python": "def longest_common_prefix(strs):\n    # TODO\n    pass\n",
+      "java": "static String longestCommonPrefix(String[] strs) {\n    // TODO\n    return \"\";\n}\n",
+      "cpp": "string longestCommonPrefix(vector<string>& strs) {\n    // TODO\n    return \"\";\n}\n"
+    }
+  },
+  {
+    "id": 7,
+    "slug": "count-words-with-prefix",
+    "title": "접두사로 단어 수 세기",
+    "difficulty": "easy",
+    "category": "string",
+    "functionName": "prefixCount",
+    "pythonFunctionName": "prefix_count",
+    "type": "coding",
+    "description": "단어 배열 words와 접두사 문자열 pref가 주어집니다.\nwords에서 pref를 접두사로 갖는 단어의 수를 반환하세요.\n접두사란 문자열의 처음부터 시작하는 부분 문자열입니다.\n\n제한 사항\n- 1 ≤ words.length ≤ 100\n- 1 ≤ words[i].length, pref.length ≤ 100\n- words[i]와 pref는 영문 소문자로만 이루어져 있습니다",
+    "examples": [
+      {
+        "input": "words = [\"pay\",\"attention\",\"practice\",\"attend\"], pref = \"at\"",
+        "output": "2"
+      },
+      {
+        "input": "words = [\"leetcode\",\"win\",\"loops\",\"success\"], pref = \"code\"",
+        "output": "0"
+      }
+    ],
+    "starter": {
+      "python": "def prefix_count(words, pref):\n    # TODO\n    pass\n",
+      "java": "static int prefixCount(String[] words, String pref) {\n    // TODO\n    return 0;\n}\n",
+      "cpp": "int prefixCount(vector<string>& words, string pref) {\n    // TODO\n    return 0;\n}\n"
+    }
+  },
+  {
+    "id": 18,
+    "type": "creative-problem",
+    "slug": "make-your-own-problem",
+    "title": "나만의 코딩 문제 만들기",
+    "difficulty": "creative",
+    "category": "creative",
+    "description": "앞서 풀었던 문제에서 사용한 알고리즘/자료구조 개념을 활용하여, 직접 코딩 테스트 문제를 설계하고 풀어보세요.\n\n[작성 가이드]\n- 어떤 상황/배경에서 이 개념이 필요한지 설명하세요\n- 함수 시그니처(입력/출력)를 명시하세요\n- 예시 입출력을 최소 1개 작성하세요\n- 제한 조건을 추가하면 더 좋습니다",
+    "placeholder": "여기에 문제 설명을 작성하세요...\n\n예시 형식:\n[문제]\n...\n\n[입력]\n...\n\n[출력]\n...\n\n[예시]\n입력: ...\n출력: ...",
+    "images": [],
+    "examples": [],
+    "starter": {
+      "python": "# 위에서 직접 설계한 문제를 풀어보세요\ndef solution():\n    # TODO\n    pass\n",
+      "java": "// 위에서 직접 설계한 문제를 풀어보세요\nstatic Object solution() {\n    // TODO\n    return null;\n}\n",
+      "cpp": "// 위에서 직접 설계한 문제를 풀어보세요\nauto solution() {\n    // TODO\n}\n"
+    }
+  },
+  {
+    "id": 19,
+    "type": "cli-given",
+    "slug": "student-grade-manager",
+    "title": "학생 성적 관리 시스템",
+    "difficulty": "medium",
+    "category": "cli",
+    "description": "아래 명세에 따라 텍스트 입출력 기반 학생 성적 관리 프로그램을 작성하세요.\n\n[명세]\n프로그램 시작 시 다음 메뉴를 반복 출력합니다:\n```\n=== 성적 관리 시스템 ===\n1. 학생 추가\n2. 전체 조회\n3. 성적 검색\n4. 종료\n선택: \n```\n\n**1. 학생 추가**\n- `이름:` 프롬프트로 이름 입력\n- `점수:` 프롬프트로 점수(0~100 정수) 입력\n- `[이름] 학생이 추가되었습니다.` 출력\n\n**2. 전체 조회**\n- `이름 | 점수` 헤더 출력 후 등록된 학생 목록 출력\n- 학생이 없으면 `등록된 학생이 없습니다.` 출력\n\n**3. 성적 검색**\n- `이름:` 프롬프트로 이름 입력\n- 해당 학생의 점수 출력. 없으면 `해당 학생을 찾을 수 없습니다.` 출력\n\n**4. 종료**\n- `프로그램을 종료합니다.` 출력 후 종료",
+    "images": [],
+    "examples": [
+      {
+        "input": "1 → 홍길동 → 85 → 2 → 4 순서로 입력",
+        "output": "홍길동 학생이 추가되었습니다. / 이름 | 점수 / 홍길동 | 85",
+        "explanation": "학생을 추가한 뒤 전체 조회하면 추가된 학생이 보입니다."
+      }
+    ],
+    "starter": {
+      "python": "# 학생 성적 관리 시스템을 구현하세요\ndef main():\n    students = {}\n    while True:\n        print('=== 성적 관리 시스템 ===')\n        print('1. 학생 추가')\n        print('2. 전체 조회')\n        print('3. 성적 검색')\n        print('4. 종료')\n        choice = input('선택: ').strip()\n        # TODO\n\nif __name__ == '__main__':\n    main()\n",
+      "java": "import java.util.Scanner;\nimport java.util.LinkedHashMap;\nimport java.util.Map;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        Map<String, Integer> students = new LinkedHashMap<>();\n        while (true) {\n            System.out.println(\"=== 성적 관리 시스템 ===\");\n            System.out.println(\"1. 학생 추가\");\n            System.out.println(\"2. 전체 조회\");\n            System.out.println(\"3. 성적 검색\");\n            System.out.println(\"4. 종료\");\n            System.out.print(\"선택: \");\n            String choice = sc.nextLine().trim();\n            // TODO\n        }\n    }\n}\n",
+      "cpp": "#include <iostream>\n#include <map>\n#include <string>\nusing namespace std;\n\nint main() {\n    map<string, int> students;\n    while (true) {\n        cout << \"=== 성적 관리 시스템 ===\" << endl;\n        cout << \"1. 학생 추가\" << endl;\n        cout << \"2. 전체 조회\" << endl;\n        cout << \"3. 성적 검색\" << endl;\n        cout << \"4. 종료\" << endl;\n        cout << \"선택: \";\n        string choice;\n        getline(cin, choice);\n        // TODO\n    }\n    return 0;\n}\n"
+    }
+  },
+  {
+    "id": 20,
+    "type": "creative-cli",
+    "slug": "design-your-cli",
+    "title": "나만의 CLI 프로그램 설계",
+    "difficulty": "creative",
+    "category": "creative",
+    "description": "이번에는 여러분이 직접 기획자가 되어보세요.\n실제로 존재할 법한 서비스나 시스템을 하나 선택해서, 그 시스템의 핵심 기능을 구현해보세요.\n\n[조건]\n- 텍스트 입출력 기반으로 동작할 것\n- 데이터를 저장하고 조회하는 기능이 있을 것\n- 사용자가 선택할 수 있는 메뉴가 있을 것\n- 최소 3가지 이상의 핵심 기능을 포함할 것\n\n[제출물]\n- 기획한 시스템의 간단한 설명 (2~3문장)\n- 구현한 프로그램 코드",
+    "placeholder": "여기에 시스템 명세를 작성하세요...\n\n예시 형식:\n[시스템 설명]\n...\n\n[핵심 기능]\n1. ...\n2. ...\n3. ...\n\n[메뉴 구조]\n...",
+    "images": [],
+    "examples": [],
+    "starter": {
+      "python": "# 직접 설계한 CLI 프로그램을 구현하세요\ndef main():\n    while True:\n        # 메뉴 출력\n        # 입력 처리\n        pass\n\nif __name__ == '__main__':\n    main()\n",
+      "java": "import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        while (true) {\n            // 메뉴 출력 및 입력 처리\n        }\n    }\n}\n",
+      "cpp": "#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    while (true) {\n        // 메뉴 출력 및 입력 처리\n    }\n    return 0;\n}\n"
+    }
   }
 ]
