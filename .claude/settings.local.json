@@ -35,7 +35,9 @@
       "Bash(Get-Command vercel *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\HCIS\\\\Desktop\\\\git\\\\LeetcodeClone\\\\judge-server\\\\\" -Recurse -Force | Select-Object FullName)",
       "Bash(docker --version)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
     ]
   }
 }

@@ -55,7 +55,11 @@ function makeLangfuse() {
     publicKey,
     secretKey,
     baseUrl: process.env.LANGFUSE_HOST || "https://cloud.langfuse.com",
-    flushAt: 1,
+    // flushAt: 1 causes a race condition — events trigger a background HTTP flush
+    // immediately, and flushAsync() sees an empty queue and returns before the
+    // in-flight request completes. Use a high value so flushAsync() is the sole
+    // trigger and guaranteed to send everything in one awaited batch.
+    flushAt: 100,
     flushInterval: 0,
   });
 }
@@ -117,7 +121,12 @@ export default async function handler(req, res) {
 
   const temperature =
     typeof body.temperature === "number" ? body.temperature : 0.6;
-  const maxTokens = typeof body.max_tokens === "number" ? body.max_tokens : 800;
+  const maxTokens =
+    typeof body.max_tokens === "number" ? body.max_tokens : 2000;
+  const problemId =
+    body.problem_id !== undefined && body.problem_id !== null
+      ? String(body.problem_id)
+      : null;
 
   const referer =
     process.env.OPENROUTER_REFERER ||
@@ -135,11 +144,11 @@ export default async function handler(req, res) {
     try {
       const logInput = extractLastUserText(messages);
       lfTrace = langfuse.trace({
-        name: "chat",
+        name: problemId ? `chat:p${problemId}` : "chat",
         userId: rawUserId,
         timestamp: startTime,
         input: logInput,
-        metadata: { model, temperature, maxTokens },
+        metadata: { model, temperature, maxTokens, problemId },
       });
       generation = lfTrace.generation({
         name: "openrouter",
