@@ -357,6 +357,28 @@ JAVA_HELPERS = r"""
 """
 
 
+def _canonical_types(cases: List[Dict[str, Any]], type_fn):
+    """For each parameter position, return the most specific type by scanning all cases.
+    Empty lists [] are ambiguous (could be int[] or int[][]), so we find the first
+    non-empty example at the same position and use its type instead."""
+    if not cases:
+        return []
+    n_params = max(len(tc["input"]) for tc in cases)
+    result = []
+    for j in range(n_params):
+        chosen = None
+        for tc in cases:
+            if j < len(tc["input"]):
+                v = tc["input"][j]
+                if not (isinstance(v, list) and len(v) == 0):
+                    chosen = type_fn(v)
+                    break
+        if chosen is None:
+            chosen = type_fn(cases[0]["input"][j])
+        result.append(chosen)
+    return result
+
+
 def run_java(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], work: Path):
     fn_name = problem.get("functionName", "solve")
 
@@ -374,12 +396,14 @@ def run_java(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], wo
     lines.append("    }")
     lines.append("")
 
+    param_types = _canonical_types(cases, java_type_str)
+
     for idx, tc in enumerate(cases, start=1):
         lines.append(f"    static void runCase{idx}() {{")
         lines.append("        try {")
         arg_names = []
         for j, arg in enumerate(tc["input"]):
-            t = java_type_str(arg)
+            t = param_types[j] if j < len(param_types) else java_type_str(arg)
             name = f"arg{j}"
             arg_names.append(name)
             lines.append(f"            {t} {name} = {java_literal(arg)};")
@@ -440,10 +464,12 @@ def run_cpp(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], wor
         "int main(){",
     ]
 
+    param_types = _canonical_types(cases, cpp_type)
+
     for idx, tc in enumerate(cases, start=1):
         arg_names = []
         for j, arg in enumerate(tc["input"]):
-            t = cpp_type(arg)
+            t = param_types[j] if j < len(param_types) else cpp_type(arg)
             name = f"arg_{idx}_{j}"
             arg_names.append(name)
             lines.append(f"  {t} {name} = {cpp_literal(arg)};")
