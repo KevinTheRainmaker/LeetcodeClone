@@ -463,6 +463,86 @@ function buildDescHtml(p) {
   return html;
 }
 
+function buildTcEditor(readOnly) {
+  const section = document.createElement("div");
+  section.className = "tc-editor";
+
+  const header = document.createElement("div");
+  header.className = "tc-editor__header";
+  header.textContent = "테스트케이스";
+  section.appendChild(header);
+
+  const rowsContainer = document.createElement("div");
+  rowsContainer.className = "tc-rows";
+  section.appendChild(rowsContainer);
+
+  const savedCases = loadUserTc() || [];
+
+  const addRow = (inputVal = "", expectedVal = "") => {
+    const row = document.createElement("div");
+    row.className = "tc-row";
+
+    const inputWrap = document.createElement("div");
+    inputWrap.className = "tc-field";
+    const inputLabel = document.createElement("label");
+    inputLabel.className = "tc-label";
+    inputLabel.textContent = "입력";
+    const inputEl = document.createElement("textarea");
+    inputEl.className = "tc-input";
+    inputEl.rows = 2;
+    inputEl.placeholder = "[1, 2, 3]";
+    inputEl.value = inputVal;
+    inputEl.readOnly = readOnly;
+    inputWrap.appendChild(inputLabel);
+    inputWrap.appendChild(inputEl);
+    row.appendChild(inputWrap);
+
+    const expectedWrap = document.createElement("div");
+    expectedWrap.className = "tc-field";
+    const expectedLabel = document.createElement("label");
+    expectedLabel.className = "tc-label";
+    expectedLabel.textContent = "기댓값";
+    const expectedEl = document.createElement("textarea");
+    expectedEl.className = "tc-expected";
+    expectedEl.rows = 2;
+    expectedEl.placeholder = "6";
+    expectedEl.value = expectedVal;
+    expectedEl.readOnly = readOnly;
+    expectedWrap.appendChild(expectedLabel);
+    expectedWrap.appendChild(expectedEl);
+    row.appendChild(expectedWrap);
+
+    if (!readOnly) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "tc-del-btn";
+      delBtn.textContent = "−";
+      delBtn.title = "삭제";
+      delBtn.addEventListener("click", () => row.remove());
+      row.appendChild(delBtn);
+    }
+
+    rowsContainer.appendChild(row);
+  };
+
+  if (savedCases.length > 0) {
+    savedCases.forEach((tc) => {
+      addRow(JSON.stringify(tc.input), JSON.stringify(tc.expected));
+    });
+  } else if (!readOnly) {
+    addRow();
+  }
+
+  if (!readOnly) {
+    const addBtn = document.createElement("button");
+    addBtn.className = "tc-add-btn";
+    addBtn.textContent = "+ 테스트케이스 추가";
+    addBtn.addEventListener("click", () => addRow());
+    section.appendChild(addBtn);
+  }
+
+  return section;
+}
+
 function renderDescPanel(p) {
   const saved = loadDesc();
   const alreadySaved = saved !== null;
@@ -486,18 +566,29 @@ function renderDescPanel(p) {
     // 카드 헤더
     const cardHeader = document.createElement("div");
     cardHeader.className = "write-card__header";
-    cardHeader.innerHTML = alreadySaved
-      ? `<svg class="write-card__icon write-card__icon--ok" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>
+    if (alreadySaved) {
+      cardHeader.innerHTML = `<svg class="write-card__icon write-card__icon--ok" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>
          <div>
            <div class="write-card__title">작성 완료</div>
            <div class="write-card__hint">저장된 내용입니다 — 오른쪽 에디터에서 코드를 작성하세요</div>
-         </div>`
-      : `<svg class="write-card__icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+         </div>
+         <button class="btn write-card__edit-btn" id="descEditBtn">문제 편집</button>`;
+      card.appendChild(cardHeader);
+      cardHeader.querySelector("#descEditBtn").addEventListener("click", () => {
+        const k = descKey();
+        if (k) localStorage.removeItem(k);
+        state.descSaved = false;
+        renderDescPanel(p);
+        applyDescLock();
+      });
+    } else {
+      cardHeader.innerHTML = `<svg class="write-card__icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
          <div>
            <div class="write-card__title">${sectionTitle}</div>
            <div class="write-card__hint">작성 후 저장하면 오른쪽 에디터가 활성화됩니다</div>
          </div>`;
-    card.appendChild(cardHeader);
+      card.appendChild(cardHeader);
+    }
 
     // 텍스트 영역
     const textarea = document.createElement("textarea");
@@ -507,6 +598,11 @@ function renderDescPanel(p) {
     textarea.value = saved || "";
     textarea.readOnly = alreadySaved;
     card.appendChild(textarea);
+
+    // 테스트케이스 에디터 (creative-problem 전용)
+    if (p.type === "creative-problem") {
+      card.appendChild(buildTcEditor(alreadySaved));
+    }
 
     // 카드 푸터
     if (!alreadySaved) {
@@ -529,6 +625,34 @@ function renderDescPanel(p) {
         if (!text) {
           showToast("내용을 입력하세요");
           return;
+        }
+        if (p.type === "creative-problem") {
+          const tcRows = card.querySelectorAll(".tc-row");
+          const cases = [];
+          for (const row of tcRows) {
+            const inp = row.querySelector(".tc-input").value.trim();
+            const exp = row.querySelector(".tc-expected").value.trim();
+            if (!inp && !exp) continue;
+            let parsedInput, parsedExpected;
+            try {
+              parsedInput = JSON.parse(inp);
+            } catch {
+              showToast(`입력값이 올바른 JSON이 아닙니다: ${inp.slice(0, 30)}`);
+              return;
+            }
+            try {
+              parsedExpected = JSON.parse(exp);
+            } catch {
+              showToast(`기댓값이 올바른 JSON이 아닙니다: ${exp.slice(0, 30)}`);
+              return;
+            }
+            if (!Array.isArray(parsedInput)) {
+              showToast("입력값은 배열 형태여야 합니다 (예: [1, 2, 3])");
+              return;
+            }
+            cases.push({ input: parsedInput, expected: parsedExpected });
+          }
+          saveUserTc(cases);
         }
         saveDesc(text);
         state.descSaved = true;
@@ -919,6 +1043,28 @@ function loadDesc() {
   return k ? localStorage.getItem(k) : null;
 }
 
+function userTcKey() {
+  const p = currentProblem();
+  if (!p || !session.userId) return null;
+  return `user_tc:${session.userId}:p${p.id}`;
+}
+
+function saveUserTc(cases) {
+  const k = userTcKey();
+  if (k) localStorage.setItem(k, JSON.stringify(cases));
+}
+
+function loadUserTc() {
+  const k = userTcKey();
+  if (!k) return null;
+  const s = localStorage.getItem(k);
+  try {
+    return s ? JSON.parse(s) : null;
+  } catch {
+    return null;
+  }
+}
+
 function saveCode() {
   const p = currentProblem();
   if (!p || !session.userId) return;
@@ -1039,10 +1185,15 @@ async function judge(mode, stdin = null) {
   if (!p) return;
   saveCode();
 
-  // creative-problem RUN: stdin 입력 프롬프트 먼저 표시
-  if (p.type === "creative-problem" && mode === "run" && stdin === null) {
-    showCreativeStdin();
-    return;
+  // creative-problem RUN: user-defined test cases
+  if (p.type === "creative-problem" && mode === "run") {
+    const userCases = loadUserTc();
+    if (!userCases || userCases.length === 0) {
+      termPush(
+        `<span class="term-err">테스트케이스가 없습니다. 문제 작성 단계에서 테스트케이스를 추가하고 저장해주세요.</span>`,
+      );
+      return;
+    }
   }
 
   // creative 유형: 자동채점 없이 저장 후 Next 활성화 (gate보다 먼저 체크)
@@ -1053,6 +1204,7 @@ async function judge(mode, stdin = null) {
       desc,
       code: state.code,
       codeLength: state.code.length,
+      userTestcases: p.type === "creative-problem" ? loadUserTc() : undefined,
     });
     if (!state.solved.has(state.idx)) {
       state.solved.add(state.idx);
@@ -1122,6 +1274,9 @@ async function judge(mode, stdin = null) {
     userId: baseId,
   };
   if (stdin !== null) body.stdin = stdin;
+  if (p.type === "creative-problem" && mode === "run") {
+    body.userTestcases = loadUserTc();
+  }
   console.log("[judge request body]", body);
   termPush(
     `<span class="term-muted">[debug] payload userId=${escapeHtml(String(body.userId || ""))}</span>`,
@@ -1150,27 +1305,6 @@ async function judge(mode, stdin = null) {
       );
       return;
     }
-    // creative-problem free-run: 테스트 없이 stdout 바로 출력
-    if (p.type === "creative-problem" && mode === "run") {
-      const ms = data.runtimeMs ?? 0;
-      const ok = data.status === "OK";
-      if (data.stdout) {
-        termPush(`<span class="term-muted">--- output (${ms} ms) ---</span>`);
-        data.stdout.split("\n").forEach((line) => {
-          termPush(`<span>${escapeHtml(line)}</span>`);
-        });
-      }
-      if (data.stderr) {
-        termPush(
-          `<span class="term-err">[stderr] ${escapeHtml(String(data.stderr).slice(0, 500))}</span>`,
-        );
-      }
-      termPush(
-        `<span class="${ok ? "term-ok" : "term-err"}">${escapeHtml(data.status)} · ${ms} ms</span>`,
-      );
-      return;
-    }
-
     const passed = data.passed ?? 0;
     const total = data.total ?? 0;
     termPush(

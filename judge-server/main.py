@@ -82,7 +82,8 @@ class JudgeRequest(BaseModel):
     code: str
     mode: str = "run"  # run | submit
     userId: str
-    stdin: Optional[str] = None  # creative-problem free-run only
+    stdin: Optional[str] = None  # creative-problem free-run only (legacy)
+    userTestcases: Optional[List[Dict]] = None  # creative-problem user-defined test cases
 
 
 class ClientLogRequest(BaseModel):
@@ -723,11 +724,24 @@ def judge(req: JudgeRequest):
     problem = get_problem(req.problemId)
     problem_type = problem.get("type") or "coding"
 
-    # creative-problem RUN: execute with user-provided stdin, return raw stdout
+    # creative-problem RUN: use user-defined test cases if provided, else legacy stdin
     if problem_type == "creative-problem" and req.mode == "run":
         work = Path(tempfile.mkdtemp(prefix="judge_"))
         try:
-            return run_creative(req.language, req.code, req.stdin or "", work)
+            if req.userTestcases:
+                cases = [{"input": tc["input"], "expected": tc["expected"]} for tc in req.userTestcases]
+                for tc in cases:
+                    if not isinstance(tc.get("input"), list):
+                        raise HTTPException(status_code=400, detail="userTestcase input must be a list")
+                synthetic_problem = {**problem, "functionName": "solution", "pythonFunctionName": "solution"}
+                if req.language == "python":
+                    return run_python(synthetic_problem, req.code, cases, work)
+                elif req.language == "java":
+                    return run_java(synthetic_problem, req.code, cases, work)
+                else:
+                    return run_cpp(synthetic_problem, req.code, cases, work)
+            else:
+                return run_creative(req.language, req.code, req.stdin or "", work)
         finally:
             shutil.rmtree(work, ignore_errors=True)
 

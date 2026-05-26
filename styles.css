@@ -2013,6 +2013,114 @@ body {
   flex-shrink: 0;
 }
 
+.write-card__edit-btn {
+  margin-left: auto;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  background: transparent;
+  border: 1px solid var(--border, #333);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.write-card__edit-btn:hover {
+  border-color: var(--accent, #4e9af1);
+  color: var(--accent, #4e9af1);
+}
+
+/* 테스트케이스 에디터 */
+.tc-editor {
+  border-top: 1px solid var(--border, #2a2a2a);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.tc-editor__header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.tc-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tc-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.tc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.tc-label {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+}
+.tc-input,
+.tc-expected {
+  width: 100%;
+  resize: vertical;
+  padding: 6px 8px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 12px;
+  background: var(--bg-deep, #111);
+  color: var(--text, #e8e8e8);
+  border: 1px solid var(--border, #2a2a2a);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.tc-input:focus,
+.tc-expected:focus {
+  outline: none;
+  border-color: var(--accent, #4e9af1);
+}
+.tc-input[readonly],
+.tc-expected[readonly] {
+  opacity: 0.65;
+  cursor: default;
+}
+.tc-del-btn {
+  margin-top: 18px;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid var(--border, #333);
+  border-radius: 4px;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+}
+.tc-del-btn:hover {
+  border-color: #e55;
+  color: #e55;
+}
+.tc-add-btn {
+  margin-top: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  background: transparent;
+  border: 1px dashed var(--border, #333);
+  border-radius: 4px;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  width: 100%;
+}
+.tc-add-btn:hover {
+  border-color: var(--accent, #4e9af1);
+  color: var(--accent, #4e9af1);
+}
+
 /* 에디터 잠금 상태 */
 .editor-locked {
   opacity: 0.38;
