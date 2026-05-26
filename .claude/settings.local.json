@@ -37,7 +37,11 @@
       "Bash(docker --version)",
       "Bash(docker compose *)",
       "mcp__plugin_context7_context7__resolve-library-id",
-      "mcp__plugin_context7_context7__query-docs"
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(cat railway.toml)",
+      "Bash(ls judge-server/deploy/)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git stash *)"
     ]
   }
 }
