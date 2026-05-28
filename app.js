@@ -29,6 +29,7 @@ if (!["java", "python", "cpp"].includes(runArgs.language)) {
 }
 
 const SESSION_USER_KEY = "cp_user_id";
+const SESSION_ACTIVE_KEY = "cp_active_user"; // sessionStorage — cleared on tab close
 const LOG_QUEUE_KEY = "cp_log_queue";
 const EXP_SUFFIX = "_exp";
 
@@ -471,6 +472,13 @@ function buildTcEditor(readOnly) {
   header.className = "tc-editor__header";
   header.textContent = "테스트케이스";
   section.appendChild(header);
+
+  const hint = document.createElement("div");
+  hint.className = "tc-editor__hint";
+  hint.innerHTML = `입력과 기댓값은 모두 <strong>JSON 형식</strong>으로 작성하세요.<br>
+    · <strong>입력</strong>: 함수 인자를 배열로 — <code>[1, 2]</code> / <code>["hello", true]</code> / <code>[[1,2],[3,4]]</code><br>
+    · <strong>기댓값</strong>: 반환값 그대로 — 숫자 <code>6</code>, 배열 <code>[1,2,3]</code>, 문자열 <code>"ok"</code>, 불리언 <code>true</code> / <code>false</code>`;
+  section.appendChild(hint);
 
   const rowsContainer = document.createElement("div");
   rowsContainer.className = "tc-rows";
@@ -1404,6 +1412,36 @@ const DEFAULT_MODEL = "anthropic/claude-sonnet-4.6";
 const GREETING = "안녕하세요, 이 문제를 풀기 위해 도움이 필요한가요?";
 let aiHistory = [];
 
+function aiChatKey() {
+  const p = currentProblem();
+  if (!p || !session.userId) return null;
+  return `aichat:${session.userId}:p${p.id}`;
+}
+
+function saveAIChat() {
+  const k = aiChatKey();
+  if (!k) return;
+  // index 0: problem seed (may contain base64 images — skip), index 1: greeting
+  // Save from index 2 onwards (actual conversation turns)
+  const turns = aiHistory.slice(2).map((m) => ({
+    role: m.role,
+    text:
+      typeof m.content === "string" ? m.content : m.content?.[0]?.text || "",
+  }));
+  localStorage.setItem(k, JSON.stringify(turns));
+}
+
+function loadAIChat() {
+  const k = aiChatKey();
+  if (!k) return null;
+  try {
+    const s = localStorage.getItem(k);
+    return s ? JSON.parse(s) : null;
+  } catch {
+    return null;
+  }
+}
+
 function getModel() {
   return localStorage.getItem(OR_MODEL_KEY) || DEFAULT_MODEL;
 }
@@ -1466,7 +1504,22 @@ async function initChatSession() {
   aiHistory.push({ role: "user", content: userContent });
   aiHistory.push({ role: "assistant", content: GREETING });
 
-  addMsg("bot", renderMarkdown(GREETING));
+  // 저장된 대화 복원 (새로고침 후에도 채팅 이어서 표시)
+  const savedTurns = loadAIChat();
+  if (savedTurns && savedTurns.length > 0) {
+    addMsg("bot", renderMarkdown(GREETING));
+    for (const turn of savedTurns) {
+      aiHistory.push({ role: turn.role, content: turn.text });
+      addMsg(
+        turn.role === "user" ? "user" : "bot",
+        turn.role === "user"
+          ? escapeHtml(turn.text)
+          : renderMarkdown(turn.text),
+      );
+    }
+  } else {
+    addMsg("bot", renderMarkdown(GREETING));
+  }
 }
 function addMsg(role, html) {
   const d = document.createElement("div");
@@ -1612,6 +1665,7 @@ async function sendAI() {
 
     const text = accumulated || "(응답 비어 있음)";
     aiHistory.push({ role: "assistant", content: text });
+    saveAIChat();
     pending.innerHTML = renderMarkdown(text);
     logEvent("ai_assistant_reply", { text, model: getModel() });
   } catch (e) {
@@ -2437,6 +2491,7 @@ function beginSession(uid) {
   session.userId = uid;
   session.sessionId = crypto.randomUUID();
   session.startedAt = new Date().toISOString();
+  sessionStorage.setItem(SESSION_ACTIVE_KEY, uid);
 
   els.userChip.style.display = "inline-flex";
   els.userChipName.textContent = uid;
@@ -2495,6 +2550,19 @@ function boot() {
           beginSession(baseId);
         }
       } else {
+        // 새로고침 시 이전 세션 자동 복원 (탭 닫으면 sessionStorage가 초기화되어 로그인 필요)
+        const activeUser = sessionStorage.getItem(SESSION_ACTIVE_KEY);
+        if (activeUser) {
+          const { baseId, isExp } = resolveUserId(activeUser);
+          if (isAllowedUser(baseId)) {
+            if (isExp) {
+              runArgs.mode = "phase2";
+              state.phase2Mode = phase2Modes[baseId] || "mandatory";
+            }
+            beginSession(baseId);
+            return;
+          }
+        }
         showLogin();
       }
     });
