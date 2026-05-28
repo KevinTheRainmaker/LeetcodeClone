@@ -518,16 +518,20 @@ def parse_line_results(proc: subprocess.CompletedProcess, cases: List[Dict[str, 
             "runtimeMs": 0,
         }
 
-    lines = [ln.strip() for ln in (proc.stdout or "").splitlines() if ln.strip()]
-    if lines and "fatal" in lines[0]:
+    all_lines = [ln.strip() for ln in (proc.stdout or "").splitlines() if ln.strip()]
+    if all_lines and "fatal" in all_lines[0]:
         return {
             "status": "Compile Error",
             "passed": 0,
             "total": len(cases),
             "caseResults": [],
-            "stderr": lines[0],
+            "stderr": all_lines[0],
             "runtimeMs": 0,
         }
+
+    # Only match lines that look like our runner JSON ({...}); user code may print
+    # extra lines (e.g. custom test output) which would otherwise shift indices.
+    lines = [ln for ln in all_lines if ln.startswith("{")]
 
     results = []
     passed = 0
