@@ -553,8 +553,7 @@ function buildTcEditor(readOnly) {
 
 function renderDescPanel(p) {
   const saved = loadDesc();
-  const alreadySaved = saved !== null;
-  state.descSaved = alreadySaved;
+  const alreadySaved = state.descSaved;
 
   if (isCreativeType(p)) {
     els.pDesc.innerHTML = "";
@@ -583,8 +582,6 @@ function renderDescPanel(p) {
          <button class="btn write-card__edit-btn" id="descEditBtn">문제 편집</button>`;
       card.appendChild(cardHeader);
       cardHeader.querySelector("#descEditBtn").addEventListener("click", () => {
-        const k = descKey();
-        if (k) localStorage.removeItem(k);
         state.descSaved = false;
         renderDescPanel(p);
         applyDescLock();
@@ -686,6 +683,8 @@ function render() {
 
   els.pTitle.textContent = `Task ${state.idx + 1}: ${p.title}`;
 
+  // descSaved를 문제 전환 시에만 localStorage에서 초기화
+  state.descSaved = loadDesc() !== null;
   renderDescPanel(p);
 
   els.pExamples.innerHTML = "";
