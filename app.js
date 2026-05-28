@@ -1621,7 +1621,7 @@ async function sendAI() {
           ...compact,
         ],
         temperature: 0.6,
-        max_tokens: 2000,
+        max_tokens: 5000,
         user_id: currentUserIdForApi(),
         problem_id: currentProblem()?.id ?? null,
       }),
