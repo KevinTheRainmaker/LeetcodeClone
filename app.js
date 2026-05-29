@@ -92,6 +92,8 @@ const state = {
   gateUnitIndex: 0,
   descSaved: false,
   phase2Mode: null,
+  aiSessionId: null,
+  aiTurnIndex: 0,
 };
 
 const els = {};
@@ -1297,6 +1299,8 @@ async function judge(mode, stdin = null) {
   logEvent(mode, {
     codeLength: state.code.length,
     code: state.code,
+    session_id: state.aiSessionId,
+    turn_index_before: state.aiTurnIndex,
   });
 
   try {
@@ -1473,6 +1477,10 @@ async function initChatSession() {
   if (!p) return;
   state.chatInitialized = true;
 
+  // 문제별 세션 ID 생성 — 같은 문제의 모든 턴을 Langfuse에서 하나의 세션으로 묶음
+  state.aiSessionId = `${session.userId}_p${p.id}_${Date.now()}`;
+  state.aiTurnIndex = 0;
+
   const imageBlocks = [];
   for (const entry of p.images || []) {
     const img = resolveImage(entry);
@@ -1603,8 +1611,17 @@ async function sendAI() {
   addMsg("user", escapeHtml(q));
   els.aiInput.value = "";
   els.aiInput.style.height = "auto";
+
+  const turnStartTime = new Date().toISOString();
+  state.aiTurnIndex += 1;
+  const turnIndex = state.aiTurnIndex;
+
   aiHistory.push({ role: "user", content: q });
-  logEvent("ai_user_message", { text: q });
+  logEvent("ai_user_message", {
+    text: q,
+    session_id: state.aiSessionId,
+    turn_index: turnIndex,
+  });
 
   const pending = addMsg("bot", `<em class="term-muted">생각 중…</em>`);
   try {
@@ -1623,6 +1640,10 @@ async function sendAI() {
         temperature: 0.6,
         user_id: currentUserIdForApi(),
         problem_id: currentProblem()?.id ?? null,
+        session_id: state.aiSessionId,
+        turn_index: turnIndex,
+        turn_start_time: turnStartTime,
+        user_query: q,
       }),
     });
     if (!res.ok) {
@@ -1662,10 +1683,17 @@ async function sendAI() {
     }
 
     const text = accumulated || "(응답 비어 있음)";
+    const latencyMs = Date.now() - new Date(turnStartTime).getTime();
     aiHistory.push({ role: "assistant", content: text });
     saveAIChat();
     pending.innerHTML = renderMarkdown(text);
-    logEvent("ai_assistant_reply", { text, model: getModel() });
+    logEvent("ai_assistant_reply", {
+      text,
+      model: getModel(),
+      session_id: state.aiSessionId,
+      turn_index: turnIndex,
+      latency_ms: latencyMs,
+    });
   } catch (e) {
     pending.innerHTML = `<span class="term-err">네트워크 오류</span>: ${escapeHtml(e.message)}`;
   }

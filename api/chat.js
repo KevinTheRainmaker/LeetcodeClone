@@ -5,7 +5,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import Langfuse from "langfuse";
 
-export const config = { maxDuration: 30 };
+export const config = { maxDuration: 60 };
 
 // Module-level cache for allowed users
 let _allowedUsers = null;
@@ -80,6 +80,37 @@ function extractLastUserText(messages, maxLen = 2000) {
   return null;
 }
 
+// Shen & Tamkin (2024) 분류 기준 — 휴리스틱 기반 query type 분류
+function classifyQuery(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  if (
+    /전체\s*코드|코드\s*(작성|구현|짜|만들어)|(풀어|해결해)\s*줘|솔루션\s*(알려|작성)|정답\s*(코드|알려)/.test(
+      t,
+    )
+  )
+    return "full_delegation";
+  if (
+    /에러|오류|버그|exception|traceback|왜\s*안\s*(돼|돌아|작동)|실패|틀렸|고쳐/.test(
+      t,
+    )
+  )
+    return "debugging";
+  if (
+    /(이\s*코드|작성된|생성된|위\s*코드)\s*(설명|뭐|어떻게)|설명해\s*줘|무슨\s*(뜻|의미)/.test(
+      t,
+    )
+  )
+    return "explanation";
+  if (
+    /왜\s|어떻게\s*(작동|동작)|개념|원리|이론|차이(점)?|뭐가\s*(다|나은)|의미가/.test(
+      t,
+    )
+  )
+    return "conceptual";
+  return "hybrid";
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -122,11 +153,21 @@ export default async function handler(req, res) {
   const temperature =
     typeof body.temperature === "number" ? body.temperature : 0.6;
   const maxTokens =
-    typeof body.max_tokens === "number" ? body.max_tokens : 2000;
+    typeof body.max_tokens === "number" ? body.max_tokens : null;
   const problemId =
     body.problem_id !== undefined && body.problem_id !== null
       ? String(body.problem_id)
       : null;
+  const sessionId =
+    typeof body.session_id === "string" ? body.session_id : null;
+  const turnIndex =
+    typeof body.turn_index === "number" ? body.turn_index : null;
+  const turnStartTime = body.turn_start_time
+    ? new Date(body.turn_start_time)
+    : null;
+  const userQuery =
+    typeof body.user_query === "string" ? body.user_query : null;
+  const queryType = classifyQuery(userQuery);
 
   const referer =
     process.env.OPENROUTER_REFERER ||
@@ -143,19 +184,33 @@ export default async function handler(req, res) {
   if (langfuse) {
     try {
       const logInput = extractLastUserText(messages);
+      const traceName = problemId
+        ? `turn:${turnIndex ?? "?"} · p${problemId}`
+        : `turn:${turnIndex ?? "?"}`;
       lfTrace = langfuse.trace({
-        name: problemId ? `chat:p${problemId}` : "chat",
+        name: traceName,
+        sessionId: sessionId ?? undefined, // Langfuse session grouping
         userId: rawUserId,
-        timestamp: startTime,
-        input: logInput,
-        metadata: { model, temperature, maxTokens, problemId },
+        timestamp: turnStartTime ?? startTime,
+        input: userQuery ?? logInput,
+        metadata: {
+          model,
+          temperature,
+          ...(maxTokens !== null && { maxTokens }),
+          problemId,
+          turnIndex,
+          queryType,
+        },
       });
       generation = lfTrace.generation({
         name: "openrouter",
         model,
-        modelParameters: { temperature, maxTokens },
+        modelParameters: {
+          temperature,
+          ...(maxTokens !== null && { maxTokens }),
+        },
         input: logInput,
-        startTime,
+        startTime: turnStartTime ?? startTime,
       });
     } catch {
       // Langfuse setup failure must never break chat
@@ -177,7 +232,7 @@ export default async function handler(req, res) {
           model,
           messages,
           temperature,
-          max_tokens: maxTokens,
+          ...(maxTokens !== null && { max_tokens: maxTokens }),
           stream: true,
         }),
       },
@@ -237,9 +292,21 @@ export default async function handler(req, res) {
     // after the response ends, so any async work after res.end() is not guaranteed.
     if (generation) {
       try {
+        const endTime = new Date();
+        const latencyMs = turnStartTime
+          ? endTime.getTime() - turnStartTime.getTime()
+          : null;
         const logOutput = fullResponse.slice(0, 2000) || null;
-        generation.end({ output: fullResponse || null, endTime: new Date() });
-        if (lfTrace) lfTrace.update({ output: logOutput });
+        generation.end({ output: fullResponse || null, endTime });
+        if (lfTrace)
+          lfTrace.update({
+            output: logOutput,
+            metadata: {
+              queryType,
+              turnIndex,
+              ...(latencyMs !== null && { latencyMs }),
+            },
+          });
         await langfuse.flushAsync();
       } catch {}
     }
