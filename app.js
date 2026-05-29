@@ -16,6 +16,7 @@ const LOG_ENDPOINT = JUDGE_API_BASE_OVERRIDE
   ? `${JUDGE_API_BASE_OVERRIDE.replace(/\/$/, "")}/client/log`
   : "/api/log";
 const CHAT_URL = "/api/chat";
+const JUDGE_EVENT_URL = "/api/judge-event";
 
 const PARAMS = new URLSearchParams(window.location.search);
 const runArgs = {
@@ -1189,6 +1190,22 @@ function showCreativeStdin() {
   };
 }
 
+function logJudgeEvent(eventType, extra = {}) {
+  fetch(JUDGE_EVENT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event_type: eventType,
+      user_id: session.userId || "",
+      session_id: state.aiSessionId,
+      problem_id: currentProblem()?.id ?? null,
+      turn_index: state.aiTurnIndex,
+      timestamp: new Date().toISOString(),
+      ...extra,
+    }),
+  }).catch(() => {});
+}
+
 async function judge(mode, stdin = null) {
   const p = currentProblem();
   if (!p) return;
@@ -1377,6 +1394,14 @@ async function judge(mode, stdin = null) {
       total,
       runtimeMs: data.runtimeMs,
     });
+    logJudgeEvent(`code_${mode}`, {
+      mode,
+      status: data.status,
+      passed,
+      total,
+      runtime_ms: data.runtimeMs ?? null,
+      code_length: state.code.length,
+    });
 
     if (mode === "submit" && total > 0 && passed === total) {
       if (!state.solved.has(state.idx)) {
@@ -1395,6 +1420,11 @@ async function judge(mode, stdin = null) {
       `<span class="term-err">채점 서버 연결 실패</span> <span class="term-muted">${escapeHtml(e.message)} (${JUDGE_URL})</span>`,
     );
     logEvent(`${mode}_error`, { error: e.message });
+    logJudgeEvent(`code_${mode}_error`, {
+      mode,
+      status: "error",
+      code_length: state.code.length,
+    });
   }
 }
 
