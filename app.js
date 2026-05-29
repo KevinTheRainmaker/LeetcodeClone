@@ -84,6 +84,7 @@ const state = {
   density: "comfortable",
   chatInitialized: false,
   lastSeedProblemId: null,
+  runPassed: false,
   explainLocked: false,
   explainPassed: false,
   explainAttempts: 0,
@@ -129,6 +130,7 @@ function cacheEls() {
     "userChip",
     "userChipName",
     "exportBtn",
+    "logoutBtn",
     "resetBtn",
     "diffBtn",
     "minimap",
@@ -783,10 +785,15 @@ function render() {
     state.gateUnitIndex = 0;
     updateAttemptCounter();
   }
+  state.runPassed = false;
   state.explainPassed = false;
   state.explainLocked = false;
   applyExplainLock();
   applyDescLock();
+  applySubmitGate();
+  // creative-cli: submit only — no testcases to run against
+  if (els.runBtn)
+    els.runBtn.style.display = p.type === "creative-cli" ? "none" : "";
 }
 
 // ────────────── Syntax highlight (overlay) ──────────────
@@ -1388,6 +1395,11 @@ async function judge(mode, stdin = null) {
       `<span class="${passed === total && total > 0 ? "term-ok" : "term-err"}">${passed === total && total > 0 ? "✓ ALL PASSED" : "✗ FAILED"}</span> <span class="term-muted">${passed}/${total} · mode=${mode}</span>`,
     );
 
+    if (mode === "run" && passed === total && total > 0) {
+      state.runPassed = true;
+      applySubmitGate();
+    }
+
     logEvent(`${mode}_result`, {
       status: data.status,
       passed,
@@ -1840,13 +1852,26 @@ function initExplainResize() {
   });
 }
 
+// Single source of truth for submitBtn.disabled.
+// Combines: describe-lock, explain-lock, and run-gate.
+function applySubmitGate() {
+  if (!els.submitBtn) return;
+  const p = currentProblem();
+  const descLocked = isCreativeType(p) && !state.descSaved;
+  const explainLocked = !!state.explainLocked;
+  // creative-cli has no RUN — no run gate. Testers bypass the gate.
+  const runGateFailed =
+    p?.type !== "creative-cli" && !state.runPassed && !isTester();
+  els.submitBtn.disabled = descLocked || explainLocked || runGateFailed;
+}
+
 function applyExplainLock() {
   const locked = !!state.explainLocked;
   els.explainOverlay?.classList.toggle("active", locked);
   els.explainOverlay?.setAttribute("aria-hidden", String(!locked));
   if (els.codeInput) els.codeInput.readOnly = locked;
   if (els.runBtn) els.runBtn.disabled = locked;
-  if (els.submitBtn) els.submitBtn.disabled = locked;
+  applySubmitGate();
   if (locked && els.nextBtn) els.nextBtn.disabled = true;
   if (els.explainSkip) {
     els.explainSkip.style.display = "none";
@@ -1859,8 +1884,7 @@ function applyDescLock() {
   if (els.codeInput)
     els.codeInput.readOnly = needsLock || !!state.explainLocked;
   if (els.runBtn) els.runBtn.disabled = needsLock || !!state.explainLocked;
-  if (els.submitBtn)
-    els.submitBtn.disabled = needsLock || !!state.explainLocked;
+  applySubmitGate();
   if (needsLock && els.nextBtn) els.nextBtn.disabled = true;
   els.codeArea?.classList.toggle("editor-locked", needsLock);
 }
@@ -2440,6 +2464,8 @@ function wireUp() {
     }
   });
 
+  els.logoutBtn?.addEventListener("click", logout);
+
   // Export
   els.exportBtn.addEventListener("click", () => {
     const phase = currentPhase();
@@ -2595,8 +2621,22 @@ function beginSession(uid) {
   els.userChip.style.display = "inline-flex";
   els.userChipName.textContent = uid;
   els.exportBtn.style.display = "inline-block";
+  if (els.logoutBtn) els.logoutBtn.style.display = "inline-block";
 
   loadData();
+}
+
+function logout() {
+  sessionStorage.removeItem(SESSION_ACTIVE_KEY);
+  session.userId = "";
+  session.sessionId = "";
+  session.startedAt = "";
+
+  els.userChip.style.display = "none";
+  els.exportBtn.style.display = "none";
+  if (els.logoutBtn) els.logoutBtn.style.display = "none";
+
+  showLogin();
 }
 
 function boot() {

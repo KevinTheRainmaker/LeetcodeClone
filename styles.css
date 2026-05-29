@@ -161,6 +161,22 @@ body {
   color: var(--text);
   border-color: var(--text-2);
 }
+.logout-btn {
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+}
+.logout-btn:hover {
+  color: oklch(0.65 0.18 25);
+  border-color: oklch(0.65 0.18 25);
+}
 
 /* ─────────── Rail ─────────── */
 .rail {
