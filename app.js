@@ -1573,10 +1573,30 @@ function buildSystemPrompt() {
     : "";
 
   return [
-    "You are a helpful, knowledgeable AI assistant. Answer any question the user asks accurately and concisely.",
+    "You are a coding education assistant. Your role is to help students learn, not to solve problems for them unless explicitly asked.",
     "- Respond in the user's language (Korean if they write Korean, English if they write English).",
-    "- For coding questions, provide clear explanations and working code examples.",
     "- You have context about the problem the user is working on from the conversation history — use it when relevant.",
+    "",
+    "## 쿼리 유형 분류 (필수)",
+    "답변 전에 현재 사용자 메시지를 아래 7가지 유형 중 하나로 분류하고, **반드시 답변의 첫 줄**에 `[QUERY_TYPE: type]` 형식으로 출력하세요. 그 이후에 답변을 이어가세요.",
+    "",
+    "유형 목록:",
+    "- `delegation`: 사용자가 문제의 완전한 풀이 코드를 요청",
+    "- `conceptual`: 알고리즘·자료구조 등 개념/원리 질문 (코드 요청 없음)",
+    "- `understanding`: 현재 작성 중인 코드나 특정 로직의 작동 방식 이해 질문",
+    "- `debugging`: 오류·버그·실패 원인 파악 및 수정 요청",
+    "- `comprehension`: 이전 AI 답변에서 제공된 코드를 이해하려는 질문",
+    "- `hybrid:type1,type2`: 위 유형 중 두 가지 이상을 명시적으로 동시에 요청 (예: `hybrid:delegation,conceptual`)",
+    "- `undefined`: 위 어느 유형에도 명확히 해당하지 않는 경우",
+    "",
+    "## 유형별 응답 규칙",
+    "- **delegation**: 동작하는 솔루션 코드를 제공하고 핵심 접근 방식을 간략히 설명하세요.",
+    "- **conceptual**: 개념과 원리 설명에만 집중하세요. 코드를 작성하지 마세요 (꼭 필요한 경우 1~2줄 의사코드만 허용).",
+    "- **understanding**: 현재 코드를 기준으로 설명하세요. 새로운 코드를 생성하지 마세요.",
+    "- **debugging**: 오류 원인을 파악하고 수정이 필요한 부분만 보여주세요. 전체 코드를 다시 작성하지 마세요.",
+    "- **comprehension**: 대화 히스토리의 코드를 기준으로 설명하세요. 새로운 코드를 생성하지 마세요.",
+    "- **hybrid**: 명시된 각 유형의 규칙을 모두 따르세요.",
+    "- **undefined**: 일반적인 학습 보조 방식으로 응답하세요.",
     codeContext,
   ].join("\n");
 }
@@ -1656,6 +1676,9 @@ async function sendAI() {
     const decoder = new TextDecoder();
     let accumulated = "";
     let buf = "";
+    let queryTypeExtracted = null;
+    let displayOffset = 0;
+    let prefixConsumed = false;
 
     pending.innerHTML = "";
 
@@ -1673,8 +1696,30 @@ async function sendAI() {
           const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content;
           if (delta) {
             accumulated += delta;
-            pending.innerHTML = renderMarkdown(accumulated);
-            els.aiBody.scrollTop = els.aiBody.scrollHeight;
+
+            // Strip [QUERY_TYPE: ...] tag from the first line before display
+            if (!prefixConsumed) {
+              const newlineIdx = accumulated.indexOf("\n");
+              if (newlineIdx !== -1) {
+                const firstLine = accumulated.slice(0, newlineIdx);
+                const match = firstLine.match(/^\[QUERY_TYPE:\s*([^\]]+)\]/);
+                if (match) {
+                  queryTypeExtracted = match[1].trim();
+                  displayOffset = newlineIdx + 1;
+                }
+                prefixConsumed = true;
+              } else if (!accumulated.startsWith("[")) {
+                // Not a tag — display everything
+                prefixConsumed = true;
+              }
+              // If starts with '[' but no newline yet, wait before displaying
+            }
+
+            const displayText = accumulated.slice(displayOffset);
+            if (displayText) {
+              pending.innerHTML = renderMarkdown(displayText);
+              els.aiBody.scrollTop = els.aiBody.scrollHeight;
+            }
           }
         } catch (_) {
           /* partial JSON — skip */
@@ -1682,13 +1727,14 @@ async function sendAI() {
       }
     }
 
-    const text = accumulated || "(응답 비어 있음)";
+    const displayText = accumulated.slice(displayOffset) || "(응답 비어 있음)";
     const latencyMs = Date.now() - new Date(turnStartTime).getTime();
-    aiHistory.push({ role: "assistant", content: text });
+    aiHistory.push({ role: "assistant", content: displayText });
     saveAIChat();
-    pending.innerHTML = renderMarkdown(text);
+    pending.innerHTML = renderMarkdown(displayText);
     logEvent("ai_assistant_reply", {
-      text,
+      text: displayText,
+      query_type: queryTypeExtracted,
       model: getModel(),
       session_id: state.aiSessionId,
       turn_index: turnIndex,

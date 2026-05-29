@@ -80,35 +80,12 @@ function extractLastUserText(messages, maxLen = 2000) {
   return null;
 }
 
-// Shen & Tamkin (2024) 분류 기준 — 휴리스틱 기반 query type 분류
-function classifyQuery(text) {
+// Extract [QUERY_TYPE: type] tag from first line of LLM response.
+// Returns null when the tag is absent.
+function extractQueryType(text) {
   if (!text) return null;
-  const t = text.toLowerCase();
-  if (
-    /전체\s*코드|코드\s*(작성|구현|짜|만들어)|(풀어|해결해)\s*줘|솔루션\s*(알려|작성)|정답\s*(코드|알려)/.test(
-      t,
-    )
-  )
-    return "full_delegation";
-  if (
-    /에러|오류|버그|exception|traceback|왜\s*안\s*(돼|돌아|작동)|실패|틀렸|고쳐/.test(
-      t,
-    )
-  )
-    return "debugging";
-  if (
-    /(이\s*코드|작성된|생성된|위\s*코드)\s*(설명|뭐|어떻게)|설명해\s*줘|무슨\s*(뜻|의미)/.test(
-      t,
-    )
-  )
-    return "explanation";
-  if (
-    /왜\s|어떻게\s*(작동|동작)|개념|원리|이론|차이(점)?|뭐가\s*(다|나은)|의미가/.test(
-      t,
-    )
-  )
-    return "conceptual";
-  return "hybrid";
+  const match = text.match(/^\[QUERY_TYPE:\s*([^\]\n]+)\]/);
+  return match ? match[1].trim() : null;
 }
 
 export default async function handler(req, res) {
@@ -167,7 +144,6 @@ export default async function handler(req, res) {
     : null;
   const userQuery =
     typeof body.user_query === "string" ? body.user_query : null;
-  const queryType = classifyQuery(userQuery);
 
   const referer =
     process.env.OPENROUTER_REFERER ||
@@ -199,7 +175,6 @@ export default async function handler(req, res) {
           ...(maxTokens !== null && { maxTokens }),
           problemId,
           turnIndex,
-          queryType,
         },
       });
       generation = lfTrace.generation({
@@ -296,13 +271,14 @@ export default async function handler(req, res) {
         const latencyMs = turnStartTime
           ? endTime.getTime() - turnStartTime.getTime()
           : null;
+        const detectedQueryType = extractQueryType(fullResponse);
         const logOutput = fullResponse.slice(0, 2000) || null;
         generation.end({ output: fullResponse || null, endTime });
         if (lfTrace)
           lfTrace.update({
             output: logOutput,
             metadata: {
-              queryType,
+              queryType: detectedQueryType,
               turnIndex,
               ...(latencyMs !== null && { latencyMs }),
             },
