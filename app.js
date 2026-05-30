@@ -25,7 +25,7 @@ const runArgs = {
   language: (PARAMS.get("lang") || "python").toLowerCase(),
   mode: (PARAMS.get("mode") || "").toLowerCase(),
 };
-if (!["java", "python", "cpp"].includes(runArgs.language)) {
+if (!["python", "cpp"].includes(runArgs.language)) {
   runArgs.language = "python";
 }
 
@@ -2656,7 +2656,7 @@ function boot() {
 
   // Restore saved lang/density; accent follows language automatically
   const savedLang = localStorage.getItem("cp_lang");
-  if (savedLang && ["java", "python", "cpp"].includes(savedLang)) {
+  if (savedLang && ["python", "cpp"].includes(savedLang)) {
     state.lang = savedLang;
   }
   applyAccent(LANG_ACCENT[state.lang] || "cyan");
