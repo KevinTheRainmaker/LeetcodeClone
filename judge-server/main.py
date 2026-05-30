@@ -293,7 +293,10 @@ def java_literal(v: Any) -> str:
 def run_python(problem: Dict[str, Any], code: str, cases: List[Dict[str, Any]], work: Path):
     fn_name = problem.get("pythonFunctionName") or to_snake(problem.get("functionName", "solve"))
     payload = [{"index": i + 1, "input": tc["input"], "expected": tc["expected"]} for i, tc in enumerate(cases)]
-    runner = f'''import json\n\n{code}\n\nFN_NAME = {json.dumps(fn_name)}\nfn = globals().get(FN_NAME)\nif not callable(fn):\n    print(json.dumps({{"fatal": f"Function '{{FN_NAME}}' not found."}}, ensure_ascii=False))\n    raise SystemExit(0)\n\nCASES = {json.dumps(payload, ensure_ascii=False)}\nfor c in CASES:\n    try:\n        actual = fn(*c["input"])\n        print(json.dumps({{"index": c["index"], "ok": actual == c["expected"], "actual": actual}}, ensure_ascii=False))\n    except Exception as e:\n        print(json.dumps({{"index": c["index"], "ok": False, "error": str(e)}}, ensure_ascii=False))\n'''
+    # Embed cases as a JSON string and parse at runtime so that JSON true/false/null
+    # map correctly to Python True/False/None instead of causing NameError.
+    cases_json_str = json.dumps(json.dumps(payload, ensure_ascii=False), ensure_ascii=False)
+    runner = f'''import json\n\n{code}\n\nFN_NAME = {json.dumps(fn_name)}\nfn = globals().get(FN_NAME)\nif not callable(fn):\n    print(json.dumps({{"fatal": f"Function '{{FN_NAME}}' not found."}}, ensure_ascii=False))\n    raise SystemExit(0)\n\nCASES = json.loads({cases_json_str})\nfor c in CASES:\n    try:\n        actual = fn(*c["input"])\n        print(json.dumps({{"index": c["index"], "ok": actual == c["expected"], "actual": actual}}, ensure_ascii=False))\n    except Exception as e:\n        print(json.dumps({{"index": c["index"], "ok": False, "error": str(e)}}, ensure_ascii=False))\n'''
     script = work / "run.py"
     script.write_text(runner, encoding="utf-8")
     proc = run_command([PYTHON_CMD, str(script)], cwd=work)

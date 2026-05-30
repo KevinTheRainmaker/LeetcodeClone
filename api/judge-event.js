@@ -59,9 +59,9 @@ export default async function handler(req, res) {
     event_type, // "code_run" | "code_submit" | "code_run_error" | "code_submit_error"
     user_id,
     session_id,
-    problem_id,
-    ai_turn_index,
-    event_seq,
+    problemId,
+    turnIndex,
+    eventSeq,
     mode, // "run" | "submit"
     status,
     passed,
@@ -74,9 +74,7 @@ export default async function handler(req, res) {
   const langfuse = makeLangfuse();
   if (langfuse && event_type && user_id) {
     try {
-      const traceName = problem_id
-        ? `${event_type}:p${problem_id}`
-        : event_type;
+      const traceName = problemId ? `${event_type}:p${problemId}` : event_type;
       const ts = timestamp ? new Date(timestamp) : new Date();
       langfuse.trace({
         name: traceName,
@@ -88,9 +86,9 @@ export default async function handler(req, res) {
         metadata: {
           event_type,
           mode,
-          problem_id,
-          ai_turn_index,
-          event_seq,
+          problemId,
+          turnIndex,
+          eventSeq,
           status,
           passed,
           total,

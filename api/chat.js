@@ -132,14 +132,14 @@ export default async function handler(req, res) {
   const maxTokens =
     typeof body.max_tokens === "number" ? body.max_tokens : null;
   const problemId =
-    body.problem_id !== undefined && body.problem_id !== null
-      ? String(body.problem_id)
+    body.problemId !== undefined && body.problemId !== null
+      ? String(body.problemId)
       : null;
   const sessionId =
     typeof body.session_id === "string" ? body.session_id : null;
   const turnIndex =
     typeof body.turn_index === "number" ? body.turn_index : null;
-  const eventSeq = typeof body.event_seq === "number" ? body.event_seq : null;
+  const eventSeq = typeof body.eventSeq === "number" ? body.eventSeq : null;
   const turnStartTime = body.turn_start_time
     ? new Date(body.turn_start_time)
     : null;
