@@ -85,6 +85,7 @@ const state = {
   chatInitialized: false,
   lastSeedProblemId: null,
   runPassed: false,
+  eventSeq: 0,
   explainLocked: false,
   explainPassed: false,
   explainAttempts: 0,
@@ -1198,6 +1199,8 @@ function showCreativeStdin() {
 }
 
 function logJudgeEvent(eventType, extra = {}) {
+  state.eventSeq += 1;
+  const seq = state.eventSeq;
   fetch(JUDGE_EVENT_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1206,7 +1209,8 @@ function logJudgeEvent(eventType, extra = {}) {
       user_id: session.userId || "",
       session_id: state.aiSessionId,
       problem_id: currentProblem()?.id ?? null,
-      turn_index: state.aiTurnIndex,
+      ai_turn_index: state.aiTurnIndex,
+      event_seq: seq,
       timestamp: new Date().toISOString(),
       ...extra,
     }),
@@ -1522,6 +1526,7 @@ async function initChatSession() {
   // 문제별 세션 ID 생성 — 같은 문제의 모든 턴을 Langfuse에서 하나의 세션으로 묶음
   state.aiSessionId = `${session.userId}_p${p.id}_${Date.now()}`;
   state.aiTurnIndex = 0;
+  state.eventSeq = 0;
 
   const imageBlocks = [];
   for (const entry of p.images || []) {
@@ -1633,6 +1638,7 @@ function buildSystemPrompt() {
     "- `conceptual`: 알고리즘·자료구조 등 개념/원리 질문",
     "- `understanding`: 현재 코드나 특정 로직의 작동 방식 이해 질문",
     "- `debugging`: 오류·버그·실패 원인 파악 및 수정 요청",
+    "- `explanation`: 특정 코드(자신의 코드 또는 제시된 코드)에 대한 설명을 명시적으로 요청",
     "- `comprehension`: 이전 AI 답변에서 제공된 코드를 이해하려는 질문",
     "- `hybrid:type1,type2`: 위 유형 중 두 가지 이상을 명시적으로 동시에 요청",
     "- `undefined`: 위 어느 유형에도 명확히 해당하지 않는 경우",
@@ -1673,7 +1679,9 @@ async function sendAI() {
 
   const turnStartTime = new Date().toISOString();
   state.aiTurnIndex += 1;
+  state.eventSeq += 1;
   const turnIndex = state.aiTurnIndex;
+  const eventSeq = state.eventSeq;
 
   aiHistory.push({ role: "user", content: q });
   logEvent("ai_user_message", {
@@ -1701,6 +1709,7 @@ async function sendAI() {
         problem_id: currentProblem()?.id ?? null,
         session_id: state.aiSessionId,
         turn_index: turnIndex,
+        event_seq: eventSeq,
         turn_start_time: turnStartTime,
         user_query: q,
       }),

@@ -139,6 +139,7 @@ export default async function handler(req, res) {
     typeof body.session_id === "string" ? body.session_id : null;
   const turnIndex =
     typeof body.turn_index === "number" ? body.turn_index : null;
+  const eventSeq = typeof body.event_seq === "number" ? body.event_seq : null;
   const turnStartTime = body.turn_start_time
     ? new Date(body.turn_start_time)
     : null;
@@ -175,6 +176,7 @@ export default async function handler(req, res) {
           ...(maxTokens !== null && { maxTokens }),
           problemId,
           turnIndex,
+          eventSeq,
         },
       });
       generation = lfTrace.generation({
@@ -280,6 +282,7 @@ export default async function handler(req, res) {
             metadata: {
               queryType: detectedQueryType,
               turnIndex,
+              eventSeq,
               ...(latencyMs !== null && { latencyMs }),
             },
           });
