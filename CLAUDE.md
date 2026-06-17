@@ -35,8 +35,23 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 | 파라미터         | 값                                | 설명                                          |
 | ---------------- | --------------------------------- | --------------------------------------------- |
 | `set` / `set_id` | 숫자                              | 문제세트 번호 (`data/problem_sets.json` 기준) |
-| `mode`           | `memo` / `assistant` / `socratic` / `phase2` | 학습 모드. `phase2`는 IDE를 잠그고 설명 입력 오버레이를 띄움 |
+| `mode`           | `memo` / `assistant` / `socratic` / `phase2` | 학습 모드. `phase2`는 user_id postfix로 자동 전환됨 |
 | `user_id`        | 문자열                            | 사용자 식별자 (로그 분리 저장용)              |
+
+## Phase2 컨디션 (user_id postfix로 배정)
+
+- `{id}_fexp` → **free**: 자유 LLM 사용 (기존과 동일하게 AI 패널 즉시 사용)
+- `{id}_pexp` → **plan**: LLM 사용 전 계획 작성 필수 (plan gate)
+- `{id}_exp` → 레거시, free로 취급
+- postfix가 있으면 `mode`가 자동으로 `phase2`로 전환되고, 배정 결과는 로그인 시 `POST /client/assignment` → `judge-server/assignments/condition_assignments.jsonl`에 기록됨
+
+### Plan gate (plan 컨디션)
+
+- AI 패널을 처음 열면 채팅 대신 4문항 계획 폼이 표시됨: ① 문제 한 문장 재설명 ② 핵심 입출력/제약 ③ 접근 방식 1–2개 ④ 예상 막힐 지점
+- 각 응답은 LLM(`/api/chat`)으로 **질문과의 관련성만** 검증 (무의미 응답 차단; 품질/정답 여부 평가 안 함). API 실패 시 길이 기반 폴백
+- 전부 통과하면 해당 문제의 LLM 채팅 해금. **문제당 1회**, 해금 상태는 localStorage `plangate:{userId}:p{problemId}`에 영속
+- 타임스탬프 로깅: `ai_panel_opened`, `plan_gate_shown`(firstShown 플래그), `plan_gate_submitted`(시도별 답안+검증 결과), `plan_gate_unlocked`(planDurationMs = 폼 최초 노출→해금)
+- 과거의 Submit 시 explanation gate는 **비활성화됨** (코드는 잔존하나 트리거 제거, `data/phase2_modes.json` 미사용)
 | `lang`           | `python` / `java` / `cpp`         | 코드 언어 (기본: `python`)                    |
 
 ## 아키텍처

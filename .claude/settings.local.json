@@ -41,7 +41,17 @@
       "Bash(cat railway.toml)",
       "Bash(ls judge-server/deploy/)",
       "Bash(echo \"exit: $?\")",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(git show *)",
+      "Bash(rm _head_check.js)",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "Read(//c/Users/HCIS/**)",
+      "Read(//c/Users/HCIS/AppData/Local/Temp/**)",
+      "Bash(dir /s /b \"plangate-check.png\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 28184)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://127.0.0.1:8080/\")"
     ]
   }
 }

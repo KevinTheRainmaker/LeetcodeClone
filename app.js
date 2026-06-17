@@ -32,7 +32,17 @@ if (!["python", "cpp"].includes(runArgs.language)) {
 const SESSION_USER_KEY = "cp_user_id";
 const SESSION_ACTIVE_KEY = "cp_active_user"; // sessionStorage — cleared on tab close
 const LOG_QUEUE_KEY = "cp_log_queue";
-const EXP_SUFFIX = "_exp";
+// phase2 진입 postfix와 컨디션 매핑.
+// _fexp → free(자유 LLM 사용), _pexp → plan(LLM 사용 전 계획 작성 필수).
+// 레거시 _exp는 free로 취급. 순서 중요: 긴 postfix 먼저 매칭.
+const EXP_SUFFIXES = [
+  { suffix: "_fexp", condition: "free" },
+  { suffix: "_pexp", condition: "plan" },
+  { suffix: "_exp", condition: "free" },
+];
+const ASSIGN_ENDPOINT = JUDGE_API_BASE_OVERRIDE
+  ? `${JUDGE_API_BASE_OVERRIDE.replace(/\/$/, "")}/client/assignment`
+  : "/api/assignment";
 
 let _kbBatch = null;
 let _kbBatchTimer = null;
@@ -40,16 +50,19 @@ const KB_FLUSH_DELAY = 2500;
 const KB_BATCH_MAX = 200;
 
 let allowedUsers = [];
-let phase2Modes = {};
-
-function isNoGateMode() {
-  return state.phase2Mode === "no-gate";
-}
 
 function resolveUserId(rawUid) {
-  const isExp = rawUid.endsWith(EXP_SUFFIX);
-  const baseId = isExp ? rawUid.slice(0, -EXP_SUFFIX.length) : rawUid;
-  return { baseId, isExp };
+  for (const { suffix, condition } of EXP_SUFFIXES) {
+    if (rawUid.endsWith(suffix)) {
+      return {
+        baseId: rawUid.slice(0, -suffix.length),
+        isExp: true,
+        condition,
+        postfix: suffix,
+      };
+    }
+  }
+  return { baseId: rawUid, isExp: false, condition: null, postfix: null };
 }
 
 function isAllowedUser(baseId) {
@@ -94,7 +107,7 @@ const state = {
   gateUnits: [],
   gateUnitIndex: 0,
   descSaved: false,
-  phase2Mode: null,
+  planCondition: null, // phase2 컨디션: "free" | "plan" | null
   aiSessionId: null,
   aiTurnIndex: 0,
 };
@@ -124,9 +137,17 @@ function cacheEls() {
     "aiHandle",
     "aiClose",
     "aiBody",
+    "aiFoot",
     "aiInput",
     "aiSend",
     "aiModel",
+    "aiPlanGate",
+    "planSubmit",
+    "planStatus",
+    "aiPlanSummary",
+    "planSummaryHead",
+    "planSummaryBody",
+    "planSummaryChev",
     "tweaks",
     "userChip",
     "userChipName",
@@ -774,18 +795,16 @@ function render() {
     if (els.aiBody) els.aiBody.innerHTML = "";
     state.chatInitialized = false;
     state.lastSeedProblemId = p.id;
-    if (els.aiPanel?.classList.contains("open")) initChatSession();
+    // 문제 전환 시 plan gate 상태 재평가 (plan 컨디션이면 문제마다 1회 계획 작성)
+    if (els.aiPanel?.classList.contains("open")) {
+      if (isPlanGateActive()) showPlanGate();
+      else {
+        hidePlanGate();
+        initChatSession();
+      }
+    }
   }
 
-  if (runArgs.mode === "phase2") {
-    if (els.explainList) els.explainList.innerHTML = "";
-    if (els.explainInput) els.explainInput.value = "";
-    state.explainAttempts = 0;
-    state.explainGateLockTime = null;
-    state.gateUnits = [];
-    state.gateUnitIndex = 0;
-    updateAttemptCounter();
-  }
   state.runPassed = false;
   state.explainPassed = false;
   state.explainLocked = false;
@@ -1256,30 +1275,6 @@ async function judge(mode, stdin = null) {
     return;
   }
 
-  // phase2: Submit 첫 클릭 시 explanation gate 트리거 (빈 코드 제외, no-gate 모드 및 전이 문제 제외)
-  if (
-    currentPhase() === "phase2" &&
-    mode === "submit" &&
-    !state.explainPassed &&
-    !isNoGateMode() &&
-    !currentProblem()?.transfer
-  ) {
-    if (state.code.trim().length < 10) {
-      termPush(`<span class="term-err">코드를 먼저 작성해주세요.</span>`);
-      return;
-    }
-    state.explainLocked = true;
-    state.explainGateLockTime = Date.now();
-    updateAttemptCounter();
-    applyExplainLock();
-    logEvent("gate_triggered", {
-      problemId: p.id,
-      triggerSource: "submit_click",
-    });
-    initGateUnits(p, state.code);
-    return;
-  }
-
   const cmd =
     mode === "submit"
       ? "pytest --submit (visible + hidden)"
@@ -1498,11 +1493,265 @@ function getModel() {
 function openAI() {
   els.aiPanel.classList.add("open");
   els.aiModel.textContent = getModel();
+  logEvent("ai_panel_opened", { condition: state.planCondition });
+  if (isPlanGateActive()) {
+    showPlanGate();
+    return;
+  }
+  hidePlanGate();
   initChatSession();
   setTimeout(() => els.aiInput.focus(), 50);
 }
 function closeAI() {
   els.aiPanel.classList.remove("open");
+}
+
+// ────────────── Plan gate (phase2 · plan 컨디션) ──────────────
+// LLM 사용 전 문제당 1회, 계획 작성 후 해금.
+const PLAN_QUESTIONS = [
+  {
+    id: "q1",
+    label:
+      "문제 재설명, 핵심 입출력/제약, 접근 방식, 예상 막힐 지점을 포함한 계획",
+    short: "계획",
+  },
+];
+
+const PLAN_RELEVANCE_PROMPT = `You are validating a student's pre-coding plan on a coding education platform. Judge ONLY whether the plan is a meaningful, on-topic attempt — not empty or gibberish. Do NOT judge correctness, quality, or depth — a brief but genuine attempt counts as relevant.
+
+Mark relevant=false ONLY if the plan is: empty or gibberish (e.g. "asdf", "..."), completely unrelated to the problem, or a non-answer placeholder (e.g. "몰라요", "없음", "그냥").
+
+Respond ONLY with valid JSON, no other text:
+{"results":[{"id":"q1","relevant":true,"feedback":"relevant=false일 때만 한국어 한 문장으로 무엇이 부족한지 안내, relevant=true면 빈 문자열"}]}`;
+
+function planGateKey() {
+  const p = currentProblem();
+  if (!p || !session.userId) return null;
+  return `plangate:${session.userId}:p${p.id}`;
+}
+
+function loadPlanGate() {
+  const k = planGateKey();
+  if (!k) return null;
+  try {
+    const s = localStorage.getItem(k);
+    return s ? JSON.parse(s) : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePlanGate(patch) {
+  const k = planGateKey();
+  if (!k) return;
+  const cur = loadPlanGate() || {};
+  localStorage.setItem(k, JSON.stringify({ ...cur, ...patch }));
+}
+
+function isPlanGateActive() {
+  return (
+    currentPhase() === "phase2" &&
+    state.planCondition === "plan" &&
+    !loadPlanGate()?.unlockedAt
+  );
+}
+
+function showPlanGate() {
+  if (!els.aiPlanGate) return;
+  els.aiPlanGate.style.display = "flex";
+  if (els.aiBody) els.aiBody.style.display = "none";
+  if (els.aiFoot) els.aiFoot.style.display = "none";
+  updatePlanSummary(); // 이전 문제의 계획 요약이 남아있지 않도록 갱신
+  if (els.planStatus) els.planStatus.textContent = "";
+  if (els.planSubmit) els.planSubmit.disabled = false;
+
+  // 마지막 제출 답안 복원, 없으면 빈 폼. 피드백 초기화.
+  const rec = loadPlanGate() || {};
+  const lastAnswers = rec.lastAnswers || [];
+  for (const q of PLAN_QUESTIONS) {
+    const ta = document.getElementById(`pg_${q.id}`);
+    const fb = document.getElementById(`pg_fb_${q.id}`);
+    if (ta) ta.value = lastAnswers.find((a) => a.id === q.id)?.answer || "";
+    if (fb) {
+      fb.textContent = "";
+      fb.className = "pg-feedback";
+    }
+  }
+
+  // 설명 입력창(계획 폼)을 처음 본 시점 기록 — 계획 작성 소요시간 측정 기준점
+  const firstShown = !rec.firstShownAt;
+  if (firstShown) savePlanGate({ firstShownAt: new Date().toISOString() });
+  logEvent("plan_gate_shown", {
+    condition: state.planCondition,
+    firstShown,
+  });
+}
+
+function hidePlanGate() {
+  if (!els.aiPlanGate) return;
+  els.aiPlanGate.style.display = "none";
+  if (els.aiBody) els.aiBody.style.display = "";
+  if (els.aiFoot) els.aiFoot.style.display = "";
+  updatePlanSummary();
+}
+
+// 해금 후 채팅 중에도 작성한 계획을 패널 상단에 고정 표시
+function updatePlanSummary() {
+  if (!els.aiPlanSummary) return;
+  const rec = loadPlanGate();
+  const show =
+    state.planCondition === "plan" &&
+    !!rec?.unlockedAt &&
+    Array.isArray(rec?.lastAnswers) &&
+    rec.lastAnswers.length > 0;
+  if (!show) {
+    els.aiPlanSummary.style.display = "none";
+    return;
+  }
+  els.aiPlanSummary.style.display = "";
+  els.planSummaryBody.innerHTML = PLAN_QUESTIONS.map((q) => {
+    const ans = rec.lastAnswers.find((a) => a.id === q.id)?.answer || "";
+    return `<div class="ps-item"><span class="ps-k">${escapeHtml(q.short)}</span><span class="ps-v">${escapeHtml(ans)}</span></div>`;
+  }).join("");
+}
+
+function togglePlanSummary() {
+  const collapsed = els.aiPlanSummary.classList.toggle("collapsed");
+  if (els.planSummaryChev)
+    els.planSummaryChev.textContent = collapsed ? "▸" : "▾";
+}
+
+async function checkPlanRelevance(problem, answers) {
+  const qaText = answers
+    .map((a) => `[${a.id}] 질문: ${a.question}\n답변: ${a.answer}`)
+    .join("\n\n");
+  const res = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: getModel(),
+      messages: [
+        { role: "system", content: PLAN_RELEVANCE_PROMPT },
+        {
+          role: "user",
+          content: `문제: ${problem.title || ""}\n\n${(problem.description || "").slice(0, 1500)}\n\n학생의 계획:\n\n${qaText}`,
+        },
+      ],
+      temperature: 0.0,
+      max_tokens: 1000,
+      user_id: currentUserIdForApi(),
+    }),
+  });
+  if (!res.ok) throw new Error(`관련성 검증 API 오류 ${res.status}`);
+  const raw = await _sseToText(res);
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed?.results)) throw new Error("결과 형식 오류");
+  return answers.map((a) => {
+    const r = parsed.results.find((x) => x.id === a.id);
+    return {
+      id: a.id,
+      relevant: !!r?.relevant,
+      feedback: r?.feedback || "",
+    };
+  });
+}
+
+async function submitPlanAnswers() {
+  const p = currentProblem();
+  if (!p || !isPlanGateActive()) return;
+
+  const answers = PLAN_QUESTIONS.map((q) => ({
+    id: q.id,
+    question: q.label,
+    answer: (document.getElementById(`pg_${q.id}`)?.value || "").trim(),
+  }));
+
+  // 빈 응답은 API 호출 전에 차단
+  let hasEmpty = false;
+  for (const a of answers) {
+    const fb = document.getElementById(`pg_fb_${a.id}`);
+    if (!a.answer) {
+      hasEmpty = true;
+      if (fb) {
+        fb.textContent = "응답을 입력해주세요.";
+        fb.className = "pg-feedback fail";
+      }
+    } else if (fb) {
+      fb.textContent = "";
+      fb.className = "pg-feedback";
+    }
+  }
+  if (hasEmpty) return;
+
+  els.planSubmit.disabled = true;
+  if (els.planStatus) els.planStatus.textContent = "응답을 확인하는 중…";
+
+  let results;
+  let fallback = false;
+  try {
+    results = await checkPlanRelevance(p, answers);
+  } catch (_) {
+    // 검증 API 실패 시 길이 기반 폴백 — 참가자가 막히지 않도록
+    fallback = true;
+    results = answers.map((a) => ({
+      id: a.id,
+      relevant: a.answer.length >= 10,
+      feedback:
+        a.answer.length >= 10
+          ? ""
+          : "응답이 너무 짧습니다. 조금 더 구체적으로 적어주세요.",
+    }));
+  }
+
+  const rec = loadPlanGate() || {};
+  const attempts = (rec.attempts || 0) + 1;
+  savePlanGate({ attempts, lastAnswers: answers });
+  logEvent("plan_gate_submitted", {
+    attempt: attempts,
+    answers,
+    results,
+    fallback,
+  });
+
+  let allOk = true;
+  for (const r of results) {
+    const fb = document.getElementById(`pg_fb_${r.id}`);
+    if (!fb) continue;
+    if (r.relevant) {
+      fb.textContent = "확인되었습니다.";
+      fb.className = "pg-feedback ok";
+    } else {
+      allOk = false;
+      fb.textContent =
+        r.feedback || "질문과 관련된 응답인지 확인하고 다시 작성해주세요.";
+      fb.className = "pg-feedback fail";
+    }
+  }
+
+  els.planSubmit.disabled = false;
+  if (!allOk) {
+    if (els.planStatus)
+      els.planStatus.textContent = "일부 응답을 보완한 뒤 다시 제출해주세요.";
+    return;
+  }
+
+  // LLM 사용 해금 시점 기록
+  const unlockedAt = new Date().toISOString();
+  savePlanGate({ unlockedAt });
+  logEvent("plan_gate_unlocked", {
+    attempts,
+    fallback,
+    planDurationMs: rec.firstShownAt
+      ? Date.now() - new Date(rec.firstShownAt).getTime()
+      : null,
+  });
+  if (els.planStatus)
+    els.planStatus.textContent = "계획이 확인되었습니다. AI 채팅이 열립니다.";
+  setTimeout(() => {
+    hidePlanGate();
+    initChatSession();
+    setTimeout(() => els.aiInput?.focus(), 50);
+  }, 800);
 }
 
 async function fetchAsDataUrl(url) {
@@ -2401,6 +2650,8 @@ function wireUp() {
   });
   els.aiClose.addEventListener("click", closeAI);
   els.aiSend.addEventListener("click", sendAI);
+  els.planSubmit?.addEventListener("click", submitPlanAnswers);
+  els.planSummaryHead?.addEventListener("click", togglePlanSummary);
   els.aiInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
@@ -2605,14 +2856,18 @@ function showLogin(initialError = "") {
       err.textContent = "ID는 문자/숫자/._-만 사용 가능합니다.";
       return;
     }
-    const { baseId, isExp } = resolveUserId(raw);
+    const { baseId, isExp, condition } = resolveUserId(raw);
     if (!isAllowedUser(baseId)) {
       err.textContent = "허용되지 않은 사용자 ID입니다.";
       return;
     }
-    if (isExp) runArgs.mode = "phase2";
-    localStorage.setItem(SESSION_USER_KEY, baseId);
-    beginSession(baseId);
+    if (isExp) {
+      runArgs.mode = "phase2";
+      state.planCondition = condition;
+    }
+    // postfix 보존을 위해 raw ID를 저장 (새로고침/재로그인 시 컨디션 유지)
+    localStorage.setItem(SESSION_USER_KEY, raw);
+    beginSession(baseId, raw);
     overlay.remove();
   };
   btn.addEventListener("click", go);
@@ -2621,11 +2876,33 @@ function showLogin(initialError = "") {
   });
 }
 
-function beginSession(uid) {
+// 컨디션 배정 결과를 서버 별도 파일(condition_assignments.jsonl)에 기록
+function recordAssignment(rawUid) {
+  const { baseId, condition, postfix } = resolveUserId(rawUid);
+  if (!condition) return;
+  fetch(ASSIGN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ts: new Date().toISOString(),
+      userId: baseId,
+      rawId: rawUid,
+      postfix,
+      condition,
+      sessionId: session.sessionId,
+      setId: runArgs.setId,
+    }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+function beginSession(uid, rawUid = uid) {
   session.userId = uid;
   session.sessionId = crypto.randomUUID();
   session.startedAt = new Date().toISOString();
-  sessionStorage.setItem(SESSION_ACTIVE_KEY, uid);
+  // raw ID(postfix 포함)를 저장해 새로고침 복원 시 phase2/컨디션이 유지되도록 함
+  sessionStorage.setItem(SESSION_ACTIVE_KEY, rawUid);
+  if (currentPhase() === "phase2") recordAssignment(rawUid);
 
   els.userChip.style.display = "inline-flex";
   els.userChipName.textContent = uid;
@@ -2669,45 +2946,36 @@ function boot() {
 
   setupVdividerDrag();
 
-  // Load allowed user list and phase2 mode assignments in parallel, then handle login
-  Promise.all([
-    fetch("./data/allowed_users.json")
-      .then((r) => r.json())
-      .catch(() => []),
-    fetch("./data/phase2_modes.json")
-      .then((r) => r.json())
-      .catch(() => ({})),
-  ])
-    .then(([list, modes]) => {
+  // Load allowed user list, then handle login
+  fetch("./data/allowed_users.json")
+    .then((r) => r.json())
+    .catch(() => [])
+    .then((list) => {
       allowedUsers = Array.isArray(list) ? list : [];
-      phase2Modes =
-        modes && typeof modes === "object" && !Array.isArray(modes)
-          ? modes
-          : {};
     })
     .finally(() => {
       if (runArgs.userIdParam) {
-        const { baseId, isExp } = resolveUserId(runArgs.userIdParam);
+        const { baseId, isExp, condition } = resolveUserId(runArgs.userIdParam);
         if (!isAllowedUser(baseId)) {
           showLogin("허용되지 않은 사용자 ID입니다.");
         } else {
           if (isExp) {
             runArgs.mode = "phase2";
-            state.phase2Mode = phase2Modes[baseId] || "mandatory";
+            state.planCondition = condition;
           }
-          beginSession(baseId);
+          beginSession(baseId, runArgs.userIdParam);
         }
       } else {
         // 새로고침 시 이전 세션 자동 복원 (탭 닫으면 sessionStorage가 초기화되어 로그인 필요)
         const activeUser = sessionStorage.getItem(SESSION_ACTIVE_KEY);
         if (activeUser) {
-          const { baseId, isExp } = resolveUserId(activeUser);
+          const { baseId, isExp, condition } = resolveUserId(activeUser);
           if (isAllowedUser(baseId)) {
             if (isExp) {
               runArgs.mode = "phase2";
-              state.phase2Mode = phase2Modes[baseId] || "mandatory";
+              state.planCondition = condition;
             }
-            beginSession(baseId);
+            beginSession(baseId, activeUser);
             return;
           }
         }

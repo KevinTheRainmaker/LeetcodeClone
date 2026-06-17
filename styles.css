@@ -1499,6 +1499,126 @@ body {
   align-items: flex-end;
   gap: 8px;
 }
+
+/* ── Plan summary (해금 후 채팅 중 계획 고정 표시) ── */
+.ai-plansummary {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+  flex-shrink: 0;
+}
+.ps-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.ps-head:hover {
+  background: var(--panel-3);
+}
+.ps-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.ps-chev {
+  font-size: 11px;
+  color: var(--text-2);
+}
+.ps-body {
+  padding: 0 14px 10px;
+  max-height: 28vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ai-plansummary.collapsed .ps-body {
+  display: none;
+}
+.ps-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.ps-k {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 11px;
+}
+.ps-v {
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Plan gate (phase2 · plan 컨디션: LLM 사용 전 계획 작성) ── */
+.ai-plangate {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pg-intro {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+  background: var(--panel-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+.pg-q {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pg-q label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.pg-q textarea {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+  min-height: 44px;
+}
+.pg-q textarea:focus {
+  border-color: var(--accent);
+}
+.pg-feedback {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pg-feedback.ok {
+  color: #4ade80;
+}
+.pg-feedback.fail {
+  color: #f87171;
+}
+.pg-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+.pg-status {
+  font-size: 12px;
+  color: var(--text-2);
+}
 .ai-input {
   flex: 1;
   min-height: 32px;

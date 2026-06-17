@@ -29,7 +29,9 @@ TIME_LIMIT_SEC = 2.0
 SHARED_TOKEN = os.getenv("JUDGE_SHARED_TOKEN", "").strip()
 # Set JUDGE_AUTH_OPTIONAL=1 only for local dev to allow unauthenticated requests.
 AUTH_OPTIONAL = os.getenv("JUDGE_AUTH_OPTIONAL", "").strip().lower() in {"1", "true", "yes"}
-EXP_SUFFIX = "_exp"
+# phase2 진입 postfix. _fexp → free(자유 LLM), _pexp → plan(계획 작성 필수), _exp → 레거시(free).
+# 순서 중요: 긴 postfix 먼저 매칭 (_exp가 _fexp/_pexp를 가로채지 않도록).
+EXP_SUFFIXES = ("_fexp", "_pexp", "_exp")
 PUBLIC_PATHS = {"/health", "/"}
 
 MAX_CODE_BYTES = int(os.getenv("MAX_CODE_BYTES", "20000"))
@@ -97,6 +99,16 @@ class ClientLogRequest(BaseModel):
     problemIdx: Optional[int] = None
     action: str
     detail: Dict[str, Any] = {}
+
+
+class AssignmentRequest(BaseModel):
+    ts: str
+    userId: str  # base ID (postfix 제거)
+    rawId: str  # postfix 포함 원본 ID
+    postfix: Optional[str] = None
+    condition: str  # "free" | "plan"
+    sessionId: Optional[str] = None
+    setId: Optional[Any] = None
 
 
 def load_json(path: Path):
@@ -691,11 +703,12 @@ def load_allowed_users():
     return set()
 
 def base_user_id(user_id: str) -> str:
-    # Strip only the `_exp` (experimental variant) suffix; otherwise return as-is.
+    # Strip only known experimental-variant suffixes; otherwise return as-is.
     # Avoid splitting on the first underscore so that IDs like "kevin_anything"
     # cannot impersonate "kevin" in the allowlist.
-    if user_id.endswith(EXP_SUFFIX):
-        return user_id[: -len(EXP_SUFFIX)]
+    for suffix in EXP_SUFFIXES:
+        if user_id.endswith(suffix):
+            return user_id[: -len(suffix)]
     return user_id
 
 def validate_user(user_id: str):
@@ -809,6 +822,21 @@ _SAFE_ID = re.compile(r"[^A-Za-z0-9_\-]")
 def _safe_segment(s: str, default: str = "anon") -> str:
     s = _SAFE_ID.sub("_", s or "")[:64]
     return s or default
+
+
+@app.post("/client/assignment")
+def client_assignment(req: AssignmentRequest):
+    # 컨디션 배정 결과를 별도 파일에 기록 (로그인/세션 시작마다 1줄 append).
+    validate_user(req.userId)
+    if req.condition not in {"free", "plan"}:
+        raise HTTPException(status_code=400, detail="condition must be free|plan")
+    out_dir = Path(__file__).resolve().parent / "assignments"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fpath = out_dir / "condition_assignments.jsonl"
+    payload = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    with fpath.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    return {"ok": True}
 
 
 @app.post("/client/log")
