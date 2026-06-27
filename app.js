@@ -24,9 +24,17 @@ const runArgs = {
   userIdParam: PARAMS.get("user_id") || null,
   language: (PARAMS.get("lang") || "python").toLowerCase(),
   mode: (PARAMS.get("mode") || "").toLowerCase(),
+  promptIntervention: (
+    PARAMS.get("prompt_intervention") ||
+    PARAMS.get("intervention") ||
+    ""
+  ).toLowerCase(),
 };
 if (!["python", "cpp"].includes(runArgs.language)) {
   runArgs.language = "python";
+}
+if (!["a", "b"].includes(runArgs.promptIntervention)) {
+  runArgs.promptIntervention = "";
 }
 
 const SESSION_USER_KEY = "cp_user_id";
@@ -36,6 +44,8 @@ const LOG_QUEUE_KEY = "cp_log_queue";
 // _fexp → free(자유 LLM 사용), _pexp → plan(LLM 사용 전 계획 작성 필수).
 // 레거시 _exp는 free로 취급. 순서 중요: 긴 postfix 먼저 매칭.
 const EXP_SUFFIXES = [
+  { suffix: "_aexp", condition: "free", intervention: "a" },
+  { suffix: "_bexp", condition: "free", intervention: "b" },
   { suffix: "_fexp", condition: "free" },
   { suffix: "_pexp", condition: "plan" },
   { suffix: "_exp", condition: "free" },
@@ -58,11 +68,18 @@ function resolveUserId(rawUid) {
         baseId: rawUid.slice(0, -suffix.length),
         isExp: true,
         condition,
+        intervention: intervention || null,
         postfix: suffix,
       };
     }
   }
-  return { baseId: rawUid, isExp: false, condition: null, postfix: null };
+  return {
+    baseId: rawUid,
+    isExp: false,
+    condition: null,
+    intervention: null,
+    postfix: null,
+  };
 }
 
 function isAllowedUser(baseId) {
@@ -108,8 +125,10 @@ const state = {
   gateUnitIndex: 0,
   descSaved: false,
   planCondition: null, // phase2 컨디션: "free" | "plan" | null
+  promptIntervention: runArgs.promptIntervention || null, // phase2 개입 타입: "a" | "b" | null
   aiSessionId: null,
   aiTurnIndex: 0,
+  aiInterventionBusy: false,
 };
 
 const els = {};
@@ -1493,7 +1512,10 @@ function getModel() {
 function openAI() {
   els.aiPanel.classList.add("open");
   els.aiModel.textContent = getModel();
-  logEvent("ai_panel_opened", { condition: state.planCondition });
+  logEvent("ai_panel_opened", {
+    condition: state.planCondition,
+    promptIntervention: activePromptIntervention(),
+  });
   if (isPlanGateActive()) {
     showPlanGate();
     return;
@@ -1919,31 +1941,204 @@ function renderMarkdown(src) {
   return s;
 }
 
-async function sendAI() {
-  const q = els.aiInput.value.trim();
-  if (!q) return;
-  addMsg("user", escapeHtml(q));
-  els.aiInput.value = "";
-  els.aiInput.style.height = "auto";
+function activePromptIntervention() {
+  if (currentPhase() !== "phase2") return null;
+  return ["a", "b"].includes(state.promptIntervention)
+    ? state.promptIntervention
+    : null;
+}
 
+function compactMessagesFrom(history) {
+  const head = history.slice(0, 2);
+  const tail = history.slice(Math.max(2, history.length - 10));
+  return [...head, ...tail];
+}
+
+function plainMessageText(message) {
+  if (!message) return "";
+  if (typeof message.content === "string") return message.content;
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text || "")
+      .join("\n");
+  }
+  return "";
+}
+
+function buildInterventionContext() {
+  const p = currentProblem();
+  const examplesText = (p?.examples || [])
+    .slice(0, 3)
+    .map((ex, i) => `Example ${i + 1}: input=${ex.input}, output=${ex.output}`)
+    .join("\n");
+  const recentTurns = aiHistory
+    .slice(2)
+    .slice(-8)
+    .map((m) => `${m.role}: ${plainMessageText(m).slice(0, 500)}`)
+    .join("\n");
+  return [
+    `Problem title: ${p?.title || ""}`,
+    `Problem description:\n${(p?.description || "").slice(0, 1800)}`,
+    examplesText ? `Examples:\n${examplesText}` : "",
+    state.code
+      ? `Student code (${state.lang}):\n${state.code.slice(0, 1800)}`
+      : "",
+    recentTurns ? `Recent conversation:\n${recentTurns}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+const ENGAGEMENT_CLASSIFIER_PROMPT = `You classify a student's prompt in a coding-learning LLM interface.
+
+High-engagement prompts show meaningful student effort or metacognition: they mention an attempted approach, a hypothesis, a concrete confusion, a specific code/debugging question, constraints, tradeoffs, or what kind of help they want.
+
+Low-engagement prompts mostly outsource thinking or are underspecified, such as "solve it", "answer", "what is the code", "help", "I don't know", or vague requests without approach/context.
+
+Judge only the student's latest prompt in context. Respond ONLY with valid JSON:
+{"engagement":"high"|"low","confidence":0.0-1.0,"reason":"short Korean explanation"}`;
+
+const ENGAGEMENT_GENERATOR_PROMPT = `You rewrite low-engagement student prompts into high-engagement prompts for a coding-learning LLM interface.
+
+Preserve the student's intent and language. Do not solve the problem. The rewritten prompt should:
+- include the relevant problem/code context;
+- ask for reasoning, hints, debugging help, or comparison of approaches;
+- encourage the assistant to respond in a learning-oriented way;
+- avoid requesting a full solution unless the original explicitly requested a full solution.
+
+Respond ONLY with the rewritten prompt text.`;
+
+function parseEngagementJson(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    const engagement = parsed?.engagement === "low" ? "low" : "high";
+    return {
+      engagement,
+      confidence:
+        typeof parsed?.confidence === "number" ? parsed.confidence : null,
+      reason: parsed?.reason || "",
+    };
+  } catch {
+    return {
+      engagement: "high",
+      confidence: null,
+      reason: "판별 응답 파싱 실패로 기존 흐름 유지",
+    };
+  }
+}
+
+async function callChatText(messages, options = {}) {
+  const res = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: getModel(),
+      messages,
+      temperature: options.temperature ?? 0.2,
+      max_tokens: options.maxTokens ?? 1000,
+      user_id: currentUserIdForApi(),
+      problemId: currentProblem()?.id ?? null,
+      session_id: state.aiSessionId,
+    }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.error?.message || `API 오류 ${res.status}`);
+  }
+  return await _sseToText(res);
+}
+
+async function classifyPromptEngagement(promptText, turnIndex) {
+  const context = buildInterventionContext();
+  try {
+    const raw = await callChatText(
+      [
+        { role: "system", content: ENGAGEMENT_CLASSIFIER_PROMPT },
+        {
+          role: "user",
+          content: `Context:\n${context}\n\nLatest student prompt:\n${promptText}`,
+        },
+      ],
+      { temperature: 0.0, maxTokens: 400 },
+    );
+    const result = parseEngagementJson(raw);
+    logEvent("prompt_intervention_classified", {
+      type: activePromptIntervention(),
+      prompt: promptText,
+      result,
+      turn_index: turnIndex,
+    });
+    return result;
+  } catch (e) {
+    const result = {
+      engagement: "high",
+      confidence: null,
+      reason: `판별 실패: ${e.message}`,
+      fallback: true,
+    };
+    logEvent("prompt_intervention_classification_failed", {
+      type: activePromptIntervention(),
+      prompt: promptText,
+      error: e.message,
+      turn_index: turnIndex,
+    });
+    return result;
+  }
+}
+
+async function generateHighEngagementPrompt(promptText, approachText, turnIndex) {
+  const context = buildInterventionContext();
+  const generated = await callChatText(
+    [
+      { role: "system", content: ENGAGEMENT_GENERATOR_PROMPT },
+      {
+        role: "user",
+        content: [
+          `Context:\n${context}`,
+          `Original low-engagement prompt:\n${promptText}`,
+          approachText
+            ? `Student's added approach/context:\n${approachText}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+      },
+    ],
+    { temperature: 0.4, maxTokens: 800 },
+  );
+  const cleaned = generated.trim();
+  logEvent("prompt_intervention_prompt_generated", {
+    type: activePromptIntervention(),
+    original_prompt: promptText,
+    approach: approachText || "",
+    generated_prompt: cleaned,
+    turn_index: turnIndex,
+  });
+  return cleaned;
+}
+
+function beginAiTurn() {
   const turnStartTime = new Date().toISOString();
   state.aiTurnIndex += 1;
   state.eventSeq += 1;
-  const turnIndex = state.aiTurnIndex;
-  const eventSeq = state.eventSeq;
+  return {
+    turnStartTime,
+    turnIndex: state.aiTurnIndex,
+    eventSeq: state.eventSeq,
+  };
+}
 
-  aiHistory.push({ role: "user", content: q });
-  logEvent("ai_user_message", {
-    text: q,
-    session_id: state.aiSessionId,
-    turn_index: turnIndex,
-  });
-
-  const pending = addMsg("bot", `<em class="term-muted">생각 중…</em>`);
+async function streamAIResponse({
+  compact,
+  pending,
+  userQuery,
+  turnStartTime,
+  turnIndex,
+  eventSeq,
+  interventionVariant = null,
+}) {
   try {
-    const head = aiHistory.slice(0, 2);
-    const tail = aiHistory.slice(Math.max(2, aiHistory.length - 10));
-    const compact = [...head, ...tail];
     const res = await fetch(CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1960,13 +2155,14 @@ async function sendAI() {
         turn_index: turnIndex,
         eventSeq: eventSeq,
         turn_start_time: turnStartTime,
-        user_query: q,
+        user_query: userQuery,
+        intervention_variant: interventionVariant,
       }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       pending.innerHTML = `<span class="term-err">오류 ${res.status}</span>: ${escapeHtml(data?.error?.message || JSON.stringify(data))}`;
-      return;
+      return { ok: false, text: "", queryType: null };
     }
 
     const reader = res.body.getReader();
@@ -2026,20 +2222,392 @@ async function sendAI() {
 
     const displayText = accumulated.slice(displayOffset) || "(응답 비어 있음)";
     const latencyMs = Date.now() - new Date(turnStartTime).getTime();
-    aiHistory.push({ role: "assistant", content: displayText });
-    saveAIChat();
     pending.innerHTML = renderMarkdown(displayText);
-    logEvent("ai_assistant_reply", {
+    return {
+      ok: true,
       text: displayText,
-      query_type: queryTypeExtracted,
+      queryType: queryTypeExtracted,
+      latencyMs,
+    };
+  } catch (e) {
+    pending.innerHTML = `<span class="term-err">네트워크 오류</span>: ${escapeHtml(e.message)}`;
+    return { ok: false, text: "", queryType: null, error: e.message };
+  }
+}
+
+async function sendAIPlain(q, options = {}) {
+  if (options.displayUser !== false) addMsg("user", escapeHtml(q));
+  const { turnStartTime, turnIndex, eventSeq } = options.turn || beginAiTurn();
+
+  logEvent("ai_user_message", {
+    text: q,
+    session_id: state.aiSessionId,
+    turn_index: turnIndex,
+    intervention: options.intervention || null,
+    original_prompt: options.originalPrompt || null,
+  });
+
+  const pending = options.pending || addMsg("bot", `<em class="term-muted">생각 중…</em>`);
+  const compact = compactMessagesFrom([
+    ...aiHistory,
+    { role: "user", content: q },
+  ]);
+  const result = await streamAIResponse({
+    compact,
+    pending,
+    userQuery: q,
+    turnStartTime,
+    turnIndex,
+    eventSeq,
+    interventionVariant: options.intervention || null,
+  });
+
+  if (result.ok) {
+    aiHistory.push({ role: "user", content: q });
+    aiHistory.push({ role: "assistant", content: result.text });
+    saveAIChat();
+    logEvent("ai_assistant_reply", {
+      text: result.text,
+      query_type: result.queryType,
       model: getModel(),
       session_id: state.aiSessionId,
       turn_index: turnIndex,
-      latency_ms: latencyMs,
+      latency_ms: result.latencyMs,
+      intervention: options.intervention || null,
+      original_prompt: options.originalPrompt || null,
+    });
+  }
+  return result;
+}
+
+function makeInterventionCard(className = "") {
+  const d = document.createElement("div");
+  d.className = `ai-intervention ${className}`.trim();
+  els.aiBody.appendChild(d);
+  els.aiBody.scrollTop = els.aiBody.scrollHeight;
+  return d;
+}
+
+async function handleTypeAIntervention(q) {
+  state.aiInterventionBusy = true;
+  const turn = beginAiTurn();
+  logEvent("prompt_intervention_received", {
+    type: "a",
+    prompt: q,
+    turn_index: turn.turnIndex,
+  });
+  const checking = makeInterventionCard("type-a");
+  checking.innerHTML = `<div class="pi-title">프롬프트를 확인하는 중…</div><div class="pi-muted">Phase2 Type A 개입</div>`;
+  const result = await classifyPromptEngagement(q, turn.turnIndex);
+  if (result.engagement === "high") {
+    checking.remove();
+    logEvent("prompt_intervention_bypassed", {
+      type: "a",
+      prompt: q,
+      result,
+      turn_index: turn.turnIndex,
+    });
+    const sent = await sendAIPlain(q, { turn, intervention: "type_a_high" });
+    state.aiInterventionBusy = false;
+    return sent;
+  }
+
+  logEvent("prompt_intervention_shown", {
+    type: "a",
+    prompt: q,
+    reason: result.reason,
+    turn_index: turn.turnIndex,
+  });
+  checking.innerHTML = `
+    <div class="pi-title">조금 더 생각을 끌어낼 수 있는 질문으로 바꿔볼까요?</div>
+    <div class="pi-muted">판별 이유: ${escapeHtml(result.reason || "저참여 프롬프트로 분류됨")}</div>
+    <div class="pi-label">원래 입력</div>
+    <div class="pi-box">${escapeHtml(q)}</div>
+    <label class="pi-label" for="typeAApproach_${turn.turnIndex}">어떤 방식으로 접근해보고 싶나요?</label>
+    <textarea class="pi-textarea" id="typeAApproach_${turn.turnIndex}" rows="4" placeholder="예: 투 포인터로 풀 수 있을지 보고 싶어요. 막히는 부분은 포인터 이동 조건입니다."></textarea>
+    <div class="pi-actions">
+      <button class="btn" data-action="send-original">원래 프롬프트 전송</button>
+      <button class="btn primary" data-action="generate">개선 프롬프트 만들기</button>
+    </div>
+    <div class="pi-generated" style="display:none"></div>
+  `;
+
+  const approachEl = checking.querySelector("textarea");
+  const generatedEl = checking.querySelector(".pi-generated");
+  const originalBtn = checking.querySelector('[data-action="send-original"]');
+  const generateBtn = checking.querySelector('[data-action="generate"]');
+
+  originalBtn.addEventListener("click", async () => {
+    checking.remove();
+    logEvent("prompt_intervention_choice", {
+      type: "a",
+      choice: "original",
+      original_prompt: q,
+      turn_index: turn.turnIndex,
+    });
+    await sendAIPlain(q, {
+      turn,
+      intervention: "type_a_original",
+      originalPrompt: q,
+    });
+    state.aiInterventionBusy = false;
+  });
+
+  generateBtn.addEventListener("click", async () => {
+    const approach = (approachEl.value || "").trim();
+    logEvent("prompt_intervention_user_context", {
+      type: "a",
+      original_prompt: q,
+      approach,
+      turn_index: turn.turnIndex,
+    });
+    generateBtn.disabled = true;
+    generatedEl.style.display = "";
+    generatedEl.innerHTML = `<em class="term-muted">개선 프롬프트 생성 중…</em>`;
+    try {
+      const improved = await generateHighEngagementPrompt(
+        q,
+        approach,
+        turn.turnIndex,
+      );
+      generatedEl.innerHTML = `
+        <div class="pi-label">개선된 프롬프트</div>
+        <div class="pi-box">${escapeHtml(improved)}</div>
+        <div class="pi-actions">
+          <button class="btn" data-action="choose-original">원래 프롬프트 전송</button>
+          <button class="btn primary" data-action="choose-improved">개선 프롬프트 전송</button>
+        </div>
+      `;
+      generatedEl
+        .querySelector('[data-action="choose-original"]')
+        .addEventListener("click", async () => {
+          checking.remove();
+          logEvent("prompt_intervention_choice", {
+            type: "a",
+            choice: "original_after_generation",
+            original_prompt: q,
+            generated_prompt: improved,
+            turn_index: turn.turnIndex,
+          });
+          await sendAIPlain(q, {
+            turn,
+            intervention: "type_a_original",
+            originalPrompt: q,
+          });
+          state.aiInterventionBusy = false;
+        });
+      generatedEl
+        .querySelector('[data-action="choose-improved"]')
+        .addEventListener("click", async () => {
+          checking.remove();
+          logEvent("prompt_intervention_choice", {
+            type: "a",
+            choice: "improved",
+            original_prompt: q,
+            generated_prompt: improved,
+            turn_index: turn.turnIndex,
+          });
+          await sendAIPlain(improved, {
+            turn,
+            intervention: "type_a_improved",
+            originalPrompt: q,
+          });
+          state.aiInterventionBusy = false;
+        });
+    } catch (e) {
+      generatedEl.innerHTML = `<span class="term-err">개선 프롬프트 생성 실패</span>: ${escapeHtml(e.message)}`;
+      generateBtn.disabled = false;
+      logEvent("prompt_intervention_generation_failed", {
+        type: "a",
+        original_prompt: q,
+        error: e.message,
+        turn_index: turn.turnIndex,
+      });
+    }
+  });
+}
+
+function makeTypeBComparison(turnIndex) {
+  const wrap = makeInterventionCard("type-b");
+  wrap.innerHTML = `
+    <div class="pi-title">두 응답을 병렬로 비교합니다</div>
+    <div class="pi-muted">원래 프롬프트 응답과 개선 프롬프트 응답 중 이어갈 쪽을 선택하세요.</div>
+    <div class="pi-compare">
+      <div class="pi-col">
+        <div class="pi-label">원래 프롬프트 응답</div>
+        <div class="pi-response" data-role="original"><em class="term-muted">생각 중…</em></div>
+        <button class="btn" data-choice="original" disabled>이 응답으로 이어가기</button>
+      </div>
+      <div class="pi-col">
+        <div class="pi-label">개선 프롬프트 응답</div>
+        <div class="pi-prompt" data-role="prompt" style="display:none"></div>
+        <div class="pi-response" data-role="improved"><em class="term-muted">저참여 판별 시 생성됩니다…</em></div>
+        <button class="btn primary" data-choice="improved" disabled>이 응답으로 이어가기</button>
+      </div>
+    </div>
+  `;
+  return {
+    wrap,
+    originalEl: wrap.querySelector('[data-role="original"]'),
+    improvedEl: wrap.querySelector('[data-role="improved"]'),
+    promptEl: wrap.querySelector('[data-role="prompt"]'),
+    originalBtn: wrap.querySelector('[data-choice="original"]'),
+    improvedBtn: wrap.querySelector('[data-choice="improved"]'),
+    turnIndex,
+  };
+}
+
+async function handleTypeBIntervention(q) {
+  state.aiInterventionBusy = true;
+  const turn = beginAiTurn();
+  const baseHistory = aiHistory.slice();
+  addMsg("user", escapeHtml(q));
+  logEvent("ai_user_message", {
+    text: q,
+    session_id: state.aiSessionId,
+    turn_index: turn.turnIndex,
+    intervention: "type_b_original_started",
+  });
+  logEvent("prompt_intervention_received", {
+    type: "b",
+    prompt: q,
+    turn_index: turn.turnIndex,
+  });
+
+  const ui = makeTypeBComparison(turn.turnIndex);
+  const originalCompact = compactMessagesFrom([
+    ...baseHistory,
+    { role: "user", content: q },
+  ]);
+  const originalPromise = streamAIResponse({
+    compact: originalCompact,
+    pending: ui.originalEl,
+    userQuery: q,
+    turnStartTime: turn.turnStartTime,
+    turnIndex: turn.turnIndex,
+    eventSeq: turn.eventSeq,
+    interventionVariant: "type_b_original",
+  });
+
+  const classification = await classifyPromptEngagement(q, turn.turnIndex);
+  if (classification.engagement === "high") {
+    ui.improvedEl.innerHTML = `<span class="term-muted">고참여 프롬프트로 판별되어 병렬 개선 응답을 생성하지 않았습니다.</span>`;
+    const original = await originalPromise;
+    if (original.ok) {
+      aiHistory.push({ role: "user", content: q });
+      aiHistory.push({ role: "assistant", content: original.text });
+      saveAIChat();
+      logEvent("ai_assistant_reply", {
+        text: original.text,
+        query_type: original.queryType,
+        model: getModel(),
+        session_id: state.aiSessionId,
+        turn_index: turn.turnIndex,
+        latency_ms: original.latencyMs,
+        intervention: "type_b_high",
+      });
+    }
+    logEvent("prompt_intervention_bypassed", {
+      type: "b",
+      prompt: q,
+      result: classification,
+      turn_index: turn.turnIndex,
+    });
+    state.aiInterventionBusy = false;
+    return;
+  }
+
+  logEvent("prompt_intervention_shown", {
+    type: "b",
+    prompt: q,
+    reason: classification.reason,
+    turn_index: turn.turnIndex,
+  });
+
+  let improvedPrompt = "";
+  let improved = { ok: false, text: "" };
+  try {
+    improvedPrompt = await generateHighEngagementPrompt(q, "", turn.turnIndex);
+    ui.promptEl.style.display = "";
+    ui.promptEl.innerHTML = `<strong>개선 프롬프트</strong><br>${escapeHtml(improvedPrompt)}`;
+    const improvedCompact = compactMessagesFrom([
+      ...baseHistory,
+      { role: "user", content: improvedPrompt },
+    ]);
+    improved = await streamAIResponse({
+      compact: improvedCompact,
+      pending: ui.improvedEl,
+      userQuery: improvedPrompt,
+      turnStartTime: turn.turnStartTime,
+      turnIndex: turn.turnIndex,
+      eventSeq: turn.eventSeq,
+      interventionVariant: "type_b_improved",
     });
   } catch (e) {
-    pending.innerHTML = `<span class="term-err">네트워크 오류</span>: ${escapeHtml(e.message)}`;
+    ui.improvedEl.innerHTML = `<span class="term-err">개선 응답 생성 실패</span>: ${escapeHtml(e.message)}`;
+    logEvent("prompt_intervention_generation_failed", {
+      type: "b",
+      original_prompt: q,
+      error: e.message,
+      turn_index: turn.turnIndex,
+    });
   }
+
+  const original = await originalPromise;
+  if (original.ok) ui.originalBtn.disabled = false;
+  if (improved.ok) ui.improvedBtn.disabled = false;
+
+  const choose = (choice) => {
+    const selected =
+      choice === "improved"
+        ? { prompt: improvedPrompt, response: improved, intervention: "type_b_improved" }
+        : { prompt: q, response: original, intervention: "type_b_original" };
+    if (!selected.response.ok) return;
+    aiHistory.push({ role: "user", content: selected.prompt });
+    aiHistory.push({ role: "assistant", content: selected.response.text });
+    saveAIChat();
+    ui.wrap.classList.add("selected");
+    ui.originalBtn.disabled = true;
+    ui.improvedBtn.disabled = true;
+    logEvent("prompt_intervention_choice", {
+      type: "b",
+      choice,
+      original_prompt: q,
+      generated_prompt: improvedPrompt || null,
+      selected_prompt: selected.prompt,
+      turn_index: turn.turnIndex,
+    });
+    logEvent("ai_assistant_reply", {
+      text: selected.response.text,
+      query_type: selected.response.queryType,
+      model: getModel(),
+      session_id: state.aiSessionId,
+      turn_index: turn.turnIndex,
+      latency_ms: selected.response.latencyMs,
+      intervention: selected.intervention,
+      original_prompt: q,
+    });
+    state.aiInterventionBusy = false;
+  };
+
+  ui.originalBtn.addEventListener("click", () => choose("original"));
+  ui.improvedBtn.addEventListener("click", () => choose("improved"));
+}
+
+async function sendAI() {
+  if (state.aiInterventionBusy) {
+    showToast("먼저 현재 프롬프트 개입을 선택해주세요.");
+    return;
+  }
+  const q = els.aiInput.value.trim();
+  if (!q) return;
+  els.aiInput.value = "";
+  els.aiInput.style.height = "auto";
+
+  const intervention = activePromptIntervention();
+  if (intervention === "a") return await handleTypeAIntervention(q);
+  if (intervention === "b") return await handleTypeBIntervention(q);
+  return await sendAIPlain(q);
 }
 
 // ────────────── Tweaks ──────────────
@@ -2856,7 +3424,7 @@ function showLogin(initialError = "") {
       err.textContent = "ID는 문자/숫자/._-만 사용 가능합니다.";
       return;
     }
-    const { baseId, isExp, condition } = resolveUserId(raw);
+    const { baseId, isExp, condition, intervention } = resolveUserId(raw);
     if (!isAllowedUser(baseId)) {
       err.textContent = "허용되지 않은 사용자 ID입니다.";
       return;
@@ -2864,6 +3432,8 @@ function showLogin(initialError = "") {
     if (isExp) {
       runArgs.mode = "phase2";
       state.planCondition = condition;
+      state.promptIntervention =
+        runArgs.promptIntervention || intervention || null;
     }
     // postfix 보존을 위해 raw ID를 저장 (새로고침/재로그인 시 컨디션 유지)
     localStorage.setItem(SESSION_USER_KEY, raw);
@@ -2878,7 +3448,7 @@ function showLogin(initialError = "") {
 
 // 컨디션 배정 결과를 서버 별도 파일(condition_assignments.jsonl)에 기록
 function recordAssignment(rawUid) {
-  const { baseId, condition, postfix } = resolveUserId(rawUid);
+  const { baseId, condition, postfix, intervention } = resolveUserId(rawUid);
   if (!condition) return;
   fetch(ASSIGN_ENDPOINT, {
     method: "POST",
@@ -2889,6 +3459,7 @@ function recordAssignment(rawUid) {
       rawId: rawUid,
       postfix,
       condition,
+      promptIntervention: state.promptIntervention || intervention || null,
       sessionId: session.sessionId,
       setId: runArgs.setId,
     }),
@@ -2955,13 +3526,17 @@ function boot() {
     })
     .finally(() => {
       if (runArgs.userIdParam) {
-        const { baseId, isExp, condition } = resolveUserId(runArgs.userIdParam);
+        const { baseId, isExp, condition, intervention } = resolveUserId(
+          runArgs.userIdParam,
+        );
         if (!isAllowedUser(baseId)) {
           showLogin("허용되지 않은 사용자 ID입니다.");
         } else {
           if (isExp) {
             runArgs.mode = "phase2";
             state.planCondition = condition;
+            state.promptIntervention =
+              runArgs.promptIntervention || intervention || null;
           }
           beginSession(baseId, runArgs.userIdParam);
         }
@@ -2969,11 +3544,14 @@ function boot() {
         // 새로고침 시 이전 세션 자동 복원 (탭 닫으면 sessionStorage가 초기화되어 로그인 필요)
         const activeUser = sessionStorage.getItem(SESSION_ACTIVE_KEY);
         if (activeUser) {
-          const { baseId, isExp, condition } = resolveUserId(activeUser);
+          const { baseId, isExp, condition, intervention } =
+            resolveUserId(activeUser);
           if (isAllowedUser(baseId)) {
             if (isExp) {
               runArgs.mode = "phase2";
               state.planCondition = condition;
+              state.promptIntervention =
+                runArgs.promptIntervention || intervention || null;
             }
             beginSession(baseId, activeUser);
             return;

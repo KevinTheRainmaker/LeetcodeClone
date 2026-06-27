@@ -103,9 +103,9 @@ export default async function handler(req, res) {
   const body =
     typeof req.body === "string" ? safeParse(req.body) : req.body || {};
 
-  // user_id gate — strip _exp suffix (experiment variant) before lookup
+  // user_id gate — strip known experiment suffixes before lookup
   const rawUserId = typeof body.user_id === "string" ? body.user_id.trim() : "";
-  const userId = rawUserId.replace(/_exp$/, "");
+  const userId = rawUserId.replace(/_(?:aexp|bexp|fexp|pexp|exp)$/, "");
   if (!userId || !getAllowedUsers().has(userId)) {
     return res.status(403).json({ error: "Forbidden: user not allowed" });
   }

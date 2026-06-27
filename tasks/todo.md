@@ -45,6 +45,65 @@
 `/client/assignment` 엔드포인트는 구문 검사만 완료. 배포 환경에서 1회 확인 필요.
 LLM 관련성 검증 경로(`checkPlanRelevance`)도 실제 /api/chat 환경에서 1회 확인 권장.
 
+---
+
+# Phase2 프롬프트 개입: Type A / Type B
+
+## 요구사항 요약
+
+- **성공 기준**: Phase2에서만 사용자의 AI 입력을 판별하고, 저참여 입력에 대해 Type A 또는 Type B 방식으로 고참여 프롬프트 생성을 개입한다.
+- **Type A**: 원 입력을 LLM에 보내기 전 판별한다. 고참여면 그대로 전송, 저참여면 사용자에게 접근 방식 입력을 추가로 받고 고참여 프롬프트를 생성한 뒤 원본/개선본 중 선택하게 한다.
+- **Type B**: 원 입력은 즉시 전송한다. 저참여면 같은 대화 맥락을 기준으로 개선 프롬프트도 병렬 전송해 두 답변을 나란히 표시하고, 사용자가 이어갈 답변을 선택한다.
+- **로깅**: 판별, 개입 노출, 사용자 추가 입력, 프롬프트 생성, 원본/개선본 선택, 각 응답 생성 결과를 모두 `logEvent`로 기록한다.
+- **스코프**: 브라우저 확장처럼 동작하는 UI/흐름을 기존 AI 패널 안에 구현한다.
+- **하지 않을 것**: Phase1(normal mode) 입력/채팅 경로 변경, 기존 plan gate 의미 변경, 별도 서버 API 신설.
+
+## 접근 방식
+
+- **방안 A (추천)**: `app.js`에서 Phase2 전용 interceptor를 추가하고 기존 `/api/chat` 프록시를 판별/생성/응답에 재사용한다. UI는 `index.html`의 AI drawer 내부에 Type A 모달과 Type B 비교 영역을 추가한다.
+- **방안 B**: 서버 프록시에서 모든 요청을 판별해 개입한다. 클라이언트 UI 상태와 선택 로깅이 복잡해지고 Phase1 영향 범위가 커진다.
+- **선택 이유**: 현재 기능은 사용자 선택/병렬 표시가 핵심이라 프론트 상태 관리가 자연스럽고, `currentPhase() === "phase2"` 가드로 Phase1 영향을 최소화할 수 있다.
+
+## 구현 단계
+
+- [x] 1. `app.js`: Phase2 전용 `prompt_intervention` 설정 추가 (`a`/`b`, 없으면 비활성)
+- [x] 2. `app.js`: 저참여/고참여 판별 및 고참여 프롬프트 생성 유틸 추가
+- [x] 3. `app.js`/`styles.css`: Type A 접근 방식 입력/선택 UI 추가 (동적 카드)
+- [x] 4. `app.js`/`styles.css`: Type B 병렬 응답 비교/선택 UI 추가 (동적 카드)
+- [x] 5. `app.js`: 기존 `sendAI()`를 Phase1 보존 경로와 Phase2 개입 경로로 분리
+- [x] 6. `app.js`: 선택 이후 `aiHistory`, localStorage, 로깅이 일관되게 이어지도록 연결
+- [x] 7. 검증: JS 구문 검사, Phase1 비활성 확인, Phase2 Type A/B 흐름 정적 점검
+
+## 수정한 파일
+
+- `app.js`: Phase2 전용 Type A/B 개입, 판별/생성 유틸, 병렬 응답 선택, 로깅 연결
+- `styles.css`: Type A/B 개입 카드와 병렬 비교 UI 스타일
+- `api/chat.js`: `_aexp`/`_bexp` raw user id 정규화 지원
+- `judge-server/main.py`: `_aexp`/`_bexp` postfix와 `promptIntervention` 배정 필드 지원
+- `tasks/todo.md`: 계획 및 검증 결과 기록
+
+## Review (2026-06-27)
+
+- 구문 검증 통과: `Get-Content -Raw app.js | node --check --input-type=commonjs -`
+- 구문 검증 통과: `Get-Content -Raw api\chat.js | node --check --input-type=module -`
+- 구문 검증 통과: `python -m py_compile judge-server\main.py`
+- 공백/충돌 검증 통과: `git diff --check`
+- 정적 확인: `activePromptIntervention()`이 `currentPhase() !== "phase2"`이면 항상 `null`을 반환하므로 Phase1에서는 기존 `sendAIPlain()` 경로만 사용됨
+- 정적 확인: Type B는 원본/개선 응답 모두 `baseHistory` 스냅샷을 기준으로 요청해 두 생성의 이전 컨텍스트를 동일하게 유지함
+- 미실행: 이 샌드박스에서 임시 HTTP 서버가 포트를 열지 못해 Playwright 브라우저 수동 시나리오는 실행하지 못함
+
+## 위험 요소
+
+- **위험**: Type B에서 두 응답의 컨텍스트가 달라질 수 있음 → **완화**: 원본 사용자 메시지를 히스토리에 push하기 전 동일한 `compact` 스냅샷을 만들어 두 요청에 공통 사용.
+- **위험**: 판별 API 실패 시 사용자가 막힘 → **완화**: 판별 실패는 고참여로 간주해 기존 전송을 유지하고 실패 로그를 남김.
+- **위험**: Phase1 회귀 → **완화**: 모든 개입 진입점에 `currentPhase() === "phase2"` 및 설정값 체크.
+
+## 테스트 전략
+
+- 구문: `node --check` 동등 검사 또는 브라우저 스크립트 파싱 확인.
+- 단위 성격: 로컬 정적 검사로 `currentPhase` 가드, Type A/B 상태 전이 확인.
+- 수동 시나리오: `mode=memo` 일반 사용자, `mode=phase2&prompt_intervention=a`, `mode=phase2&prompt_intervention=b`.
+
 ## 추가: Phase2 문제 교체 — A1~A3, B1~B3 (2026-06-12, 후속 요청)
 
 phase2/main_study_problems_pilot.md 기반 6문제를 cli-given(stdin/stdout) 유형으로 추가.

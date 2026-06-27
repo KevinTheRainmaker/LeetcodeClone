@@ -29,9 +29,9 @@ TIME_LIMIT_SEC = 2.0
 SHARED_TOKEN = os.getenv("JUDGE_SHARED_TOKEN", "").strip()
 # Set JUDGE_AUTH_OPTIONAL=1 only for local dev to allow unauthenticated requests.
 AUTH_OPTIONAL = os.getenv("JUDGE_AUTH_OPTIONAL", "").strip().lower() in {"1", "true", "yes"}
-# phase2 진입 postfix. _fexp → free(자유 LLM), _pexp → plan(계획 작성 필수), _exp → 레거시(free).
-# 순서 중요: 긴 postfix 먼저 매칭 (_exp가 _fexp/_pexp를 가로채지 않도록).
-EXP_SUFFIXES = ("_fexp", "_pexp", "_exp")
+# phase2 진입 postfix. _fexp → free, _pexp → plan, _aexp/_bexp → prompt intervention, _exp → 레거시(free).
+# 순서 중요: 긴 postfix 먼저 매칭 (_exp가 다른 postfix를 가로채지 않도록).
+EXP_SUFFIXES = ("_aexp", "_bexp", "_fexp", "_pexp", "_exp")
 PUBLIC_PATHS = {"/health", "/"}
 
 MAX_CODE_BYTES = int(os.getenv("MAX_CODE_BYTES", "20000"))
@@ -107,6 +107,7 @@ class AssignmentRequest(BaseModel):
     rawId: str  # postfix 포함 원본 ID
     postfix: Optional[str] = None
     condition: str  # "free" | "plan"
+    promptIntervention: Optional[str] = None  # "a" | "b" | None
     sessionId: Optional[str] = None
     setId: Optional[Any] = None
 
