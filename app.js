@@ -2001,13 +2001,19 @@ Judge only the student's latest prompt in context. Respond ONLY with valid JSON:
 
 const ENGAGEMENT_GENERATOR_PROMPT = `You rewrite low-engagement student prompts into high-engagement prompts for a coding-learning LLM interface.
 
-Preserve the student's intent and language. Do not solve the problem. The rewritten prompt should:
+Preserve the student's intent and language. Do not solve the problem.
+
+The output MUST be a natural-language question/instruction from the student to the assistant. It must NOT be code, test data, markdown fences, JSON, a standalone problem instance, or an answer.
+
+The rewritten prompt should:
 - include the relevant problem/code context;
 - ask for reasoning, hints, debugging help, or comparison of approaches;
 - encourage the assistant to respond in a learning-oriented way;
 - avoid requesting a full solution unless the original explicitly requested a full solution.
 
-Respond ONLY with the rewritten prompt text.`;
+If the student added context is a concept question (for example "DFS가 뭐지?"), make that concept the center of the rewritten prompt and connect it to the current problem.
+
+Respond ONLY with one rewritten natural-language prompt.`;
 
 function parseEngagementJson(raw) {
   try {
@@ -2107,7 +2113,7 @@ async function generateHighEngagementPrompt(promptText, approachText, turnIndex)
     ],
     { temperature: 0.4, maxTokens: 800 },
   );
-  const cleaned = generated.trim();
+  const cleaned = sanitizeGeneratedPrompt(generated, promptText, approachText);
   logEvent("prompt_intervention_prompt_generated", {
     type: activePromptIntervention(),
     original_prompt: promptText,
@@ -2115,6 +2121,61 @@ async function generateHighEngagementPrompt(promptText, approachText, turnIndex)
     generated_prompt: cleaned,
     turn_index: turnIndex,
   });
+  return cleaned;
+}
+
+function looksLikeCodeOnly(text) {
+  const s = String(text || "").trim();
+  if (!s) return true;
+  const lines = s.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const first = lines[0] || "";
+  if (/^```/.test(first)) return true;
+  if (/^(python|javascript|js|java|cpp|c\+\+|json)$/i.test(first)) return true;
+  const codeSignals = lines.filter((line) =>
+    /[={}\[\];]|^\s*(def|class|for|while|if|return|import|const|let|var)\b/.test(
+      line,
+    ),
+  ).length;
+  const questionSignals = /[?？]|(어떻게|왜|무엇|뭐|설명|힌트|접근|이해|알려)/.test(
+    s,
+  );
+  return (
+    codeSignals >= Math.max(1, Math.ceil(lines.length * 0.6)) &&
+    !questionSignals
+  );
+}
+
+function fallbackHighEngagementPrompt(originalPrompt, approachText) {
+  const p = currentProblem();
+  const approach = String(approachText || "").trim();
+  const original = String(originalPrompt || "").trim();
+  if (approach) {
+    return [
+      `현재 문제${p?.title ? ` "${p.title}"` : ""}를 풀고 있는데, 제가 적은 추가 맥락은 "${approach}"입니다.`,
+      "이 맥락을 바탕으로 바로 정답 코드를 주기보다는, 필요한 개념과 문제에 적용하는 사고 과정을 단계적으로 설명해 주세요.",
+      original ? `원래 요청은 "${original}"였습니다.` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+  return [
+    `현재 문제${p?.title ? ` "${p.title}"` : ""}를 풀기 위해 어디서부터 생각하면 좋을지 힌트를 받고 싶습니다.`,
+    "정답 코드를 바로 주기보다는 핵심 개념, 가능한 접근 방식, 제가 먼저 확인해야 할 조건을 순서대로 설명해 주세요.",
+    original ? `원래 요청은 "${original}"였습니다.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function sanitizeGeneratedPrompt(generated, originalPrompt, approachText) {
+  const cleaned = String(generated || "")
+    .trim()
+    .replace(/^```(?:\w+)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  if (looksLikeCodeOnly(cleaned)) {
+    return fallbackHighEngagementPrompt(originalPrompt, approachText);
+  }
   return cleaned;
 }
 
