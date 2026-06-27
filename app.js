@@ -2011,7 +2011,7 @@ The rewritten prompt should:
 - encourage the assistant to respond in a learning-oriented way;
 - avoid requesting a full solution unless the original explicitly requested a full solution.
 
-If the student added context is a concept question (for example "DFS가 뭐지?"), make that concept the center of the rewritten prompt and connect it to the current problem.
+If the student added context is a concept question, make that concept the center of the rewritten prompt and connect it to the current problem.
 
 Respond ONLY with one rewritten natural-language prompt.`;
 
@@ -2358,7 +2358,7 @@ async function handleTypeAIntervention(q) {
     turn_index: turn.turnIndex,
   });
   const checking = makeInterventionCard("type-a");
-  checking.innerHTML = `<div class="pi-title">프롬프트를 확인하는 중…</div><div class="pi-muted">Phase2 Type A 개입</div>`;
+  checking.innerHTML = `<div class="pi-title">질문을 확인하는 중…</div><div class="pi-muted">질문을 더 구체화할 수 있는지 살펴보고 있습니다.</div>`;
   const result = await classifyPromptEngagement(q, turn.turnIndex);
   if (result.engagement === "high") {
     checking.remove();
@@ -2381,14 +2381,14 @@ async function handleTypeAIntervention(q) {
   });
   checking.innerHTML = `
     <div class="pi-title">조금 더 생각을 끌어낼 수 있는 질문으로 바꿔볼까요?</div>
-    <div class="pi-muted">판별 이유: ${escapeHtml(result.reason || "저참여 프롬프트로 분류됨")}</div>
+    <div class="pi-muted">확인 결과: ${escapeHtml(result.reason || "질문을 조금 더 구체화하면 도움이 됩니다.")}</div>
     <div class="pi-label">원래 입력</div>
     <div class="pi-box">${escapeHtml(q)}</div>
     <label class="pi-label" for="typeAApproach_${turn.turnIndex}">어떤 방식으로 접근해보고 싶나요?</label>
-    <textarea class="pi-textarea" id="typeAApproach_${turn.turnIndex}" rows="4" placeholder="예: 투 포인터로 풀 수 있을지 보고 싶어요. 막히는 부분은 포인터 이동 조건입니다."></textarea>
+    <textarea class="pi-textarea" id="typeAApproach_${turn.turnIndex}" rows="4" placeholder="지금 떠오른 접근, 궁금한 개념, 막히는 지점을 적어주세요."></textarea>
     <div class="pi-actions">
-      <button class="btn" data-action="send-original">원래 프롬프트 전송</button>
-      <button class="btn primary" data-action="generate">개선 프롬프트 만들기</button>
+      <button class="btn" data-action="send-original">원래 질문 보내기</button>
+      <button class="btn primary" data-action="generate">질문 다듬기</button>
     </div>
     <div class="pi-generated" style="display:none"></div>
   `;
@@ -2424,7 +2424,7 @@ async function handleTypeAIntervention(q) {
     });
     generateBtn.disabled = true;
     generatedEl.style.display = "";
-    generatedEl.innerHTML = `<em class="term-muted">개선 프롬프트 생성 중…</em>`;
+    generatedEl.innerHTML = `<em class="term-muted">질문을 다듬는 중…</em>`;
     try {
       const improved = await generateHighEngagementPrompt(
         q,
@@ -2432,11 +2432,11 @@ async function handleTypeAIntervention(q) {
         turn.turnIndex,
       );
       generatedEl.innerHTML = `
-        <div class="pi-label">개선된 프롬프트</div>
+        <div class="pi-label">다듬은 질문</div>
         <div class="pi-box">${escapeHtml(improved)}</div>
         <div class="pi-actions">
-          <button class="btn" data-action="choose-original">원래 프롬프트 전송</button>
-          <button class="btn primary" data-action="choose-improved">개선 프롬프트 전송</button>
+          <button class="btn" data-action="choose-original">원래 질문 보내기</button>
+          <button class="btn primary" data-action="choose-improved">다듬은 질문 보내기</button>
         </div>
       `;
       generatedEl
@@ -2476,7 +2476,7 @@ async function handleTypeAIntervention(q) {
           state.aiInterventionBusy = false;
         });
     } catch (e) {
-      generatedEl.innerHTML = `<span class="term-err">개선 프롬프트 생성 실패</span>: ${escapeHtml(e.message)}`;
+      generatedEl.innerHTML = `<span class="term-err">질문을 다듬지 못했습니다</span>: ${escapeHtml(e.message)}`;
       generateBtn.disabled = false;
       logEvent("prompt_intervention_generation_failed", {
         type: "a",
@@ -2491,18 +2491,18 @@ async function handleTypeAIntervention(q) {
 function makeTypeBComparison(turnIndex) {
   const wrap = makeInterventionCard("type-b");
   wrap.innerHTML = `
-    <div class="pi-title">두 응답을 병렬로 비교합니다</div>
-    <div class="pi-muted">원래 프롬프트 응답과 개선 프롬프트 응답 중 이어갈 쪽을 선택하세요.</div>
+    <div class="pi-title">두 응답을 비교합니다</div>
+    <div class="pi-muted">원래 질문으로 받은 응답과 다듬은 질문으로 받은 응답 중 이어갈 쪽을 선택하세요.</div>
     <div class="pi-compare">
       <div class="pi-col">
-        <div class="pi-label">원래 프롬프트 응답</div>
+        <div class="pi-label">원래 질문 응답</div>
         <div class="pi-response" data-role="original"><em class="term-muted">생각 중…</em></div>
         <button class="btn" data-choice="original" disabled>이 응답으로 이어가기</button>
       </div>
       <div class="pi-col">
-        <div class="pi-label">개선 프롬프트 응답</div>
+        <div class="pi-label">다듬은 질문 응답</div>
         <div class="pi-prompt" data-role="prompt" style="display:none"></div>
-        <div class="pi-response" data-role="improved"><em class="term-muted">저참여 판별 시 생성됩니다…</em></div>
+        <div class="pi-response" data-role="improved"><em class="term-muted">추가 응답이 준비되면 표시됩니다…</em></div>
         <button class="btn primary" data-choice="improved" disabled>이 응답으로 이어가기</button>
       </div>
     </div>
@@ -2552,7 +2552,7 @@ async function handleTypeBIntervention(q) {
 
   const classification = await classifyPromptEngagement(q, turn.turnIndex);
   if (classification.engagement === "high") {
-    ui.improvedEl.innerHTML = `<span class="term-muted">고참여 프롬프트로 판별되어 병렬 개선 응답을 생성하지 않았습니다.</span>`;
+    ui.improvedEl.innerHTML = `<span class="term-muted">이미 충분히 구체적인 질문으로 보여 추가 응답을 만들지 않았습니다.</span>`;
     const original = await originalPromise;
     if (original.ok) {
       aiHistory.push({ role: "user", content: q });
@@ -2590,7 +2590,7 @@ async function handleTypeBIntervention(q) {
   try {
     improvedPrompt = await generateHighEngagementPrompt(q, "", turn.turnIndex);
     ui.promptEl.style.display = "";
-    ui.promptEl.innerHTML = `<strong>개선 프롬프트</strong><br>${escapeHtml(improvedPrompt)}`;
+    ui.promptEl.innerHTML = `<strong>다듬은 질문</strong><br>${escapeHtml(improvedPrompt)}`;
     const improvedCompact = compactMessagesFrom([
       ...baseHistory,
       { role: "user", content: improvedPrompt },
@@ -2605,7 +2605,7 @@ async function handleTypeBIntervention(q) {
       interventionVariant: "type_b_improved",
     });
   } catch (e) {
-    ui.improvedEl.innerHTML = `<span class="term-err">개선 응답 생성 실패</span>: ${escapeHtml(e.message)}`;
+    ui.improvedEl.innerHTML = `<span class="term-err">추가 응답을 만들지 못했습니다</span>: ${escapeHtml(e.message)}`;
     logEvent("prompt_intervention_generation_failed", {
       type: "b",
       original_prompt: q,
@@ -2657,7 +2657,7 @@ async function handleTypeBIntervention(q) {
 
 async function sendAI() {
   if (state.aiInterventionBusy) {
-    showToast("먼저 현재 프롬프트 개입을 선택해주세요.");
+    showToast("먼저 현재 질문 흐름을 선택해주세요.");
     return;
   }
   const q = els.aiInput.value.trim();
